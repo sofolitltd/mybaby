@@ -1,19 +1,25 @@
 import 'package:flutter/widgets.dart';
 
-/// Shadows for surfaces genuinely above the flow — sheets/snackbars, and
-/// (v2) every frosted-glass surface, which floats over the background
-/// gradient by design. Never used for flat/solid content. See
+/// Elevation levels for the flat "Serene Nurture" surface system — visual
+/// separation comes from soft ambient shadows, not borders or blur. See
 /// docs/DESIGN_SYSTEM.md#6-radii-borders--elevation.
 class AppShadows {
   const AppShadows._();
 
-  static const List<BoxShadow> floating = [
-    BoxShadow(color: Color(0x1F000000), blurRadius: 32, offset: Offset(0, 8)),
+  /// Level 1 — cards resting on the canvas.
+  static const List<BoxShadow> card = [
+    BoxShadow(color: Color(0x0A111827), blurRadius: 20, offset: Offset(0, 4)),
+    BoxShadow(color: Color(0x05111827), blurRadius: 6, offset: Offset(0, 2)),
   ];
 
-  /// Softer, wider spread than [floating] — used behind glass cards and the
-  /// floating pill nav so they read as sitting just above the gradient.
-  static const List<BoxShadow> glass = [
-    BoxShadow(color: Color(0x21000000), blurRadius: 44, offset: Offset(0, 18)),
+  /// Level 2 — docked/floating navigation and floating action surfaces.
+  static const List<BoxShadow> nav = [
+    BoxShadow(color: Color(0x14111827), blurRadius: 32, offset: Offset(0, 12)),
+    BoxShadow(color: Color(0x08111827), blurRadius: 12, offset: Offset(0, 4)),
+  ];
+
+  /// Level 3 — modals and bottom sheets, shadow diffused upward.
+  static const List<BoxShadow> modal = [
+    BoxShadow(color: Color(0x14000000), blurRadius: 30, offset: Offset(0, -8)),
   ];
 }

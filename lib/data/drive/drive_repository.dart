@@ -88,6 +88,31 @@ class DriveRepository {
     }
   }
 
+  /// Total size (bytes) of everything MyBaby has uploaded into its own Drive
+  /// app-folder. Unlike account-wide quota (`about.get(storageQuota)`, which
+  /// needs a broader OAuth scope than this app's `drive.file`), summing the
+  /// app's own files' `size` metadata is allowed under `drive.file` — the
+  /// scope grants read access to any file this app created, size included.
+  Future<int> appFolderUsageBytes() async {
+    final api = _api();
+    final folderId = await ensureAppFolder();
+    var total = 0;
+    String? pageToken;
+    do {
+      final page = await api.files.list(
+        q: "'$folderId' in parents and trashed = false",
+        spaces: 'drive',
+        $fields: 'nextPageToken, files(size)',
+        pageToken: pageToken,
+      );
+      for (final file in page.files ?? const <drive.File>[]) {
+        total += int.tryParse(file.size ?? '0') ?? 0;
+      }
+      pageToken = page.nextPageToken;
+    } while (pageToken != null);
+    return total;
+  }
+
   /// Downloads a file's raw bytes — used to render images inline (a
   /// `drive.file`-scoped file has no public URL, so we fetch and decode it
   /// ourselves rather than linking out to Drive).

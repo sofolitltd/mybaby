@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:firebase_auth/firebase_auth.dart' as fb;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
@@ -25,6 +25,12 @@ class AuthRepository {
 
   static const driveScopes = [drive.DriveApi.driveFileScope];
 
+  /// Debug-only sign-in tracing — never runs in release builds, since it
+  /// can include the signed-in user's email/uid and raw auth exceptions.
+  static void _log(String message) {
+    if (kDebugMode) debugPrint('[GoogleSignIn] $message');
+  }
+
   static Future<void> _initialize() {
     return GoogleSignIn.instance.initialize(
       serverClientId: _androidServerClientId,
@@ -40,25 +46,53 @@ class AuthRepository {
   fb.User? get currentUser => _auth.currentUser;
 
   Future<void> signInWithGoogle() async {
+    _log('signInWithGoogle start (kIsWeb=$kIsWeb)');
     if (kIsWeb) {
       final provider = fb.GoogleAuthProvider()
         ..addScope(drive.DriveApi.driveFileScope);
-      final userCredential = await _auth.signInWithPopup(provider);
-      final oauth = userCredential.credential as fb.OAuthCredential?;
-      _driveAccessToken = oauth?.accessToken;
+      try {
+        final userCredential = await _auth.signInWithPopup(provider);
+        final oauth = userCredential.credential as fb.OAuthCredential?;
+        _driveAccessToken = oauth?.accessToken;
+        _log('web signInWithPopup succeeded');
+      } catch (e, st) {
+        _log('web signInWithPopup FAILED: $e\n$st');
+        rethrow;
+      }
       return;
     }
 
-    await _initGoogleSignIn;
-    final account = await GoogleSignIn.instance.authenticate();
-    final idToken = account.authentication.idToken;
-    final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
-    await _auth.signInWithCredential(credential);
+    try {
+      await _initGoogleSignIn;
+      _log('initialize complete, calling authenticate()');
+      final account = await GoogleSignIn.instance.authenticate();
+      _log('authenticate() succeeded');
 
-    final authorization = await account.authorizationClient.authorizeScopes(
-      driveScopes,
-    );
-    _driveAccessToken = authorization.accessToken;
+      final idToken = account.authentication.idToken;
+      _log('idToken present: ${idToken != null}');
+      final credential = fb.GoogleAuthProvider.credential(idToken: idToken);
+
+      await _auth.signInWithCredential(credential);
+      _log('Firebase signInWithCredential succeeded');
+
+      final authorization = await account.authorizationClient.authorizeScopes(
+        driveScopes,
+      );
+      _driveAccessToken = authorization.accessToken;
+      _log(
+        'Drive authorizeScopes succeeded '
+        '(accessToken present: ${_driveAccessToken != null})',
+      );
+    } on GoogleSignInException catch (e) {
+      _log('GoogleSignInException: code=${e.code}');
+      rethrow;
+    } on fb.FirebaseAuthException catch (e) {
+      _log('FirebaseAuthException: code=${e.code}');
+      rethrow;
+    } catch (e) {
+      _log('Unexpected error: ${e.runtimeType}');
+      rethrow;
+    }
   }
 
   Future<void> signOut() async {

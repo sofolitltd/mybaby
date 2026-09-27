@@ -7,10 +7,10 @@ import 'app_glass_surface.dart';
 enum AppButtonVariant { primary, tonal, secondary }
 
 /// Replaces `FilledButton`/`FilledButton.tonal` — 48×48dp minimum, [TapScale]
-/// feedback instead of a ripple. All three variants are frosted glass, no
-/// color gradient: `primary` uses a brighter white "prominent" glass (the
-/// iOS-26/27-style Liquid Glass CTA treatment), `tonal`/`secondary` use the
-/// ambient glass fill. See docs/DESIGN_SYSTEM.md#8-components.
+/// feedback instead of a ripple. Full pill geometry per the Serene Nurture
+/// spec: `primary` is a solid `colors.primary` fill, `tonal` a soft tint of
+/// it, `secondary` a hairline-bordered neutral fill. See
+/// docs/DESIGN_SYSTEM.md#8-components.
 class AppButton extends StatelessWidget {
   const AppButton({
     super.key,
@@ -31,11 +31,26 @@ class AppButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppTheme.of(context).colors;
-    final radius = BorderRadius.circular(AppRadii.s);
+    final radius = BorderRadius.circular(AppRadii.pill);
     final disabled = onPressed == null;
-    final foreground = variant == AppButtonVariant.primary
-        ? colors.onGlassProminent
-        : colors.textPrimary;
+
+    final Color fill;
+    final Color foreground;
+    final bool border;
+    switch (variant) {
+      case AppButtonVariant.primary:
+        fill = colors.primary;
+        foreground = colors.onPrimary;
+        border = false;
+      case AppButtonVariant.tonal:
+        fill = colors.primary.withValues(alpha: 0.12);
+        foreground = colors.primary;
+        border = false;
+      case AppButtonVariant.secondary:
+        fill = colors.surfaceSunken;
+        foreground = colors.textPrimary;
+        border = true;
+    }
 
     final content = Container(
       padding: padding,
@@ -59,9 +74,8 @@ class AppButton extends StatelessWidget {
           child: AppGlassSurface(
             borderRadius: radius,
             shadows: null,
-            fill: variant == AppButtonVariant.primary
-                ? colors.glass.prominentFill
-                : null,
+            fill: fill,
+            border: border,
             child: content,
           ),
         ),

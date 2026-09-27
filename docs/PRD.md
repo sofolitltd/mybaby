@@ -67,7 +67,7 @@ See [UX.md](./UX.md) for the full screen-by-screen flows and interaction details
 | Onboarding | Google Sign-In → Drive permission consent → create first baby profile |
 | Home | Dashboard: growth snapshot, next vaccination due, recent memory, quick-log buttons |
 | Growth | Percentile charts + entry list + add-entry sheet |
-| Memories | Milestone checklist + memory timeline + add-memory sheet |
+| Memories | Milestone checklist + memory timeline + add-memory screen |
 | Health | Vaccination schedule + doctor visits + document vault |
 | Care Log | Today's timeline + quick-action bar + weekly stats |
 | Settings | Manage baby profiles, notifications, Drive storage/backup status, theme, sign-out |

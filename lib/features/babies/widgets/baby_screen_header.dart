@@ -9,9 +9,13 @@ import '../../../core/theme/motion/tap_scale.dart';
 /// settings), since `AppAppBar` isn't built yet — see
 /// docs/DESIGN_SYSTEM.md#8-components.
 class BabyScreenHeader extends StatelessWidget {
-  const BabyScreenHeader({super.key, required this.title});
+  const BabyScreenHeader({super.key, required this.title, this.trailing});
 
   final String title;
+
+  /// Optional action pinned to the far right — e.g. a delete button on an
+  /// edit screen. Null on every other screen that uses this header.
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -37,12 +41,15 @@ class BabyScreenHeader extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AppSpacing.xs),
-          Text(
-            title,
-            style: theme.typography.title.copyWith(
-              color: theme.colors.textPrimary,
+          Expanded(
+            child: Text(
+              title,
+              style: theme.typography.title.copyWith(
+                color: theme.colors.textPrimary,
+              ),
             ),
           ),
+          ?trailing,
         ],
       ),
     );

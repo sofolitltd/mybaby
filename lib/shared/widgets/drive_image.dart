@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/providers.dart';
+import '../../core/theme/app_theme.dart';
 
 /// Renders an image stored in the app's Drive folder inline — a `drive.file`
 /// file has no public URL, so this downloads and decodes the bytes itself
@@ -29,14 +30,14 @@ class DriveImage extends ConsumerWidget {
         child: Center(
           child: Icon(
             Icons.broken_image_outlined,
-            color: Theme.of(context).colorScheme.error,
+            color: AppTheme.of(context).colors.status.overdue,
           ),
         ),
       ),
       data: (bytes) => GestureDetector(
-        onTap: () => _openFullScreen(context, bytes),
+        onTap: () => showDriveImageViewer(context, bytes),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(AppRadii.s),
           child: Image.memory(
             bytes,
             height: height,
@@ -47,16 +48,19 @@ class DriveImage extends ConsumerWidget {
       ),
     );
   }
+}
 
-  void _openFullScreen(BuildContext context, Uint8List bytes) {
-    Navigator.of(context).push(
-      PageRouteBuilder(
-        opaque: false,
-        barrierColor: Colors.black,
-        pageBuilder: (context, _, _) => _FullScreenImage(bytes: bytes),
-      ),
-    );
-  }
+/// Opens the same in-app zoomable full-screen viewer [DriveImage] uses on
+/// tap — shared so other widgets (e.g. a document card's "View" action) show
+/// Drive-backed images without ever leaving the app.
+void showDriveImageViewer(BuildContext context, Uint8List bytes) {
+  Navigator.of(context).push(
+    PageRouteBuilder(
+      opaque: false,
+      barrierColor: Colors.black,
+      pageBuilder: (context, _, _) => _FullScreenImage(bytes: bytes),
+    ),
+  );
 }
 
 class _FullScreenImage extends StatelessWidget {

@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/widgets.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +13,7 @@ import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/baby_switcher_sheet.dart';
 
 const _kRailWidth = 88.0;
+const _kExpandedRailWidth = 120.0;
 
 /// Persistent nav shell — a floating glass pill nav on phones, a floating
 /// glass rail on wide/web viewports — plus the always-visible baby switcher.
@@ -40,108 +39,90 @@ class AppShell extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final wide = isWideLayout(context);
+    final expanded = MediaQuery.sizeOf(context).width >= kExpandedRailBreakpoint;
+    final railWidth = expanded ? _kExpandedRailWidth : _kRailWidth;
     final baby = ref.watch(activeBabyProvider);
-
-    final nav = wide
-        ? _AppNavRail(
-            currentIndex: navigationShell.currentIndex,
-            destinations: _destinations,
-            onSelect: _onSelect,
-          )
-        : _AppBottomNav(
-            currentIndex: navigationShell.currentIndex,
-            destinations: _destinations,
-            onSelect: _onSelect,
-          );
 
     return AppScaffold(
       appBar: _AppTopBar(
         babyName: baby?.name,
         babyAgeWeeks: baby?.ageInWeeks,
         babyEmoji: baby?.avatarEmoji,
+        babyAvatarDriveFileId: baby?.avatarDriveFileId,
       ),
       body: wide
           ? Stack(
               children: [
                 Padding(
-                  padding: const EdgeInsets.only(
-                    left: _kRailWidth + AppSpacing.l,
-                  ),
+                  padding: EdgeInsets.only(left: railWidth + AppSpacing.l),
                   child: ContentColumn(child: navigationShell),
                 ),
                 Positioned(
                   left: AppSpacing.l,
                   top: AppSpacing.l,
                   bottom: AppSpacing.l,
-                  child: nav,
+                  child: _AppNavRail(
+                    width: railWidth,
+                    currentIndex: navigationShell.currentIndex,
+                    destinations: _destinations,
+                    onSelect: _onSelect,
+                  ),
                 ),
               ],
             )
-          : Stack(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 84),
-                  child: ContentColumn(child: navigationShell),
-                ),
-                Positioned(
-                  left: AppSpacing.xl,
-                  right: AppSpacing.xl,
-                  bottom: AppSpacing.l,
-                  child: nav,
-                ),
-              ],
+          : ContentColumn(child: navigationShell),
+      bottomNavigationBar: wide
+          ? null
+          : _AppBottomNav(
+              currentIndex: navigationShell.currentIndex,
+              destinations: _destinations,
+              onSelect: _onSelect,
             ),
     );
   }
 }
 
 class _AppTopBar extends StatelessWidget implements PreferredSizeWidget {
-  const _AppTopBar({this.babyName, this.babyAgeWeeks, this.babyEmoji});
+  const _AppTopBar({
+    this.babyName,
+    this.babyAgeWeeks,
+    this.babyEmoji,
+    this.babyAvatarDriveFileId,
+  });
 
   final String? babyName;
   final int? babyAgeWeeks;
   final String? babyEmoji;
+  final String? babyAvatarDriveFileId;
 
   @override
   Size get preferredSize => const Size.fromHeight(64);
 
   @override
   Widget build(BuildContext context) {
-    final glass = AppTheme.of(context).colors.glass;
     final theme = AppTheme.of(context);
     return SafeArea(
       bottom: false,
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: AppGlass.blurSigma,
-            sigmaY: AppGlass.blurSigma,
-          ),
-          child: Container(
-            height: preferredSize.height,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-            decoration: BoxDecoration(
-              color: glass.fill,
-              border: Border(bottom: BorderSide(color: glass.border)),
-            ),
-            child: Row(
-              children: [
+      child: Container(
+        height: preferredSize.height,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+        decoration: BoxDecoration(
+          color: theme.colors.surface,
+          border: Border(bottom: BorderSide(color: theme.colors.hairline)),
+        ),
+        child: Row(
+          children: [
                 Expanded(
                   child: TapScale(
                     onTap: () => showBabySwitcherSheet(context),
                     borderRadius: BorderRadius.circular(AppRadii.pill),
                     child: Row(
+                      crossAxisAlignment: .start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Container(
-                          width: 32,
-                          height: 32,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(
-                            color: theme.colors.surfaceSunken,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(babyEmoji ?? '👶'),
+                        _BabyAvatar(
+                          driveFileId: babyAvatarDriveFileId,
+                          emoji: babyEmoji ?? '👶',
                         ),
                         const SizedBox(width: AppSpacing.s),
                         Column(
@@ -152,6 +133,7 @@ class _AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                               babyName ?? '—',
                               style: theme.typography.subtitle.copyWith(
                                 color: theme.colors.textPrimary,
+                                fontSize: 12,
                               ),
                             ),
                             if (babyAgeWeeks != null)
@@ -159,6 +141,7 @@ class _AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                                 '$babyAgeWeeks weeks old',
                                 style: theme.typography.caption.copyWith(
                                   color: theme.colors.textSecondary,
+                                  fontSize: 10,
                                 ),
                               ),
                           ],
@@ -167,7 +150,7 @@ class _AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                         Icon(
                           LucideIcons.chevron_down,
                           size: 18,
-                          color: theme.colors.textTertiary,
+                          // color: theme.colors.textTertiary,
                         ),
                       ],
                     ),
@@ -186,17 +169,51 @@ class _AppTopBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ],
             ),
-          ),
-        ),
       ),
+    );
+  }
+}
+
+/// 32x32 circular baby avatar in the top bar — shows the Drive-backed photo
+/// once it's loaded, falling back to the sex emoji while loading, on error,
+/// or when no photo was ever uploaded.
+class _BabyAvatar extends ConsumerWidget {
+  const _BabyAvatar({required this.driveFileId, required this.emoji});
+
+  final String? driveFileId;
+  final String emoji;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = AppTheme.of(context).colors;
+    final fileId = driveFileId;
+    final bytes = fileId == null
+        ? null
+        : ref.watch(driveImageBytesProvider(fileId)).value;
+
+    return Container(
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.surfaceSunken,
+        shape: BoxShape.circle,
+        image: bytes == null
+            ? null
+            : DecorationImage(image: MemoryImage(bytes), fit: BoxFit.cover),
+      ),
+      child: bytes == null ? Text(emoji) : null,
     );
   }
 }
 
 typedef _Destination = ({IconData icon, String label});
 
-/// Floating glass pill — margin on every side so the gradient background
-/// shows around it, content scrolls underneath. See
+/// Standard full-width bottom nav bar, docked flush to the screen edge —
+/// the phone equivalent of [_AppNavRail]. Passed to `Scaffold`'s own
+/// `bottomNavigationBar` slot (via [AppScaffold]) rather than floated over
+/// [ContentColumn], so it gets real edge-to-edge placement and Scaffold's
+/// automatic body-height accounting for free. See
 /// docs/DESIGN_SYSTEM.md#8-components.
 class _AppBottomNav extends StatelessWidget {
   const _AppBottomNav({
@@ -211,23 +228,32 @@ class _AppBottomNav extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AppGlassSurface(
-      borderRadius: BorderRadius.circular(AppRadii.pill),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.s,
-        vertical: AppSpacing.s,
+    final colors = AppTheme.of(context).colors;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surface,
+        border: Border(top: BorderSide(color: colors.hairline)),
       ),
-      child: Row(
-        children: [
-          for (var i = 0; i < destinations.length; i++)
-            Expanded(
-              child: _NavItem(
-                destination: destinations[i],
-                selected: i == currentIndex,
-                onTap: () => onSelect(i),
-              ),
-            ),
-        ],
+      child: SafeArea(
+        top: false,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            // horizontal: AppSpacing.s,
+            vertical: AppSpacing.s,
+          ),
+          child: Row(
+            children: [
+              for (var i = 0; i < destinations.length; i++)
+                Expanded(
+                  child: _NavItem(
+                    destination: destinations[i],
+                    selected: i == currentIndex,
+                    onTap: () => onSelect(i),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -237,11 +263,13 @@ class _AppBottomNav extends StatelessWidget {
 /// [_AppBottomNav], same margin-and-blur treatment.
 class _AppNavRail extends StatelessWidget {
   const _AppNavRail({
+    required this.width,
     required this.currentIndex,
     required this.destinations,
     required this.onSelect,
   });
 
+  final double width;
   final int currentIndex;
   final List<_Destination> destinations;
   final ValueChanged<int> onSelect;
@@ -249,7 +277,7 @@ class _AppNavRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: _kRailWidth,
+      width: width,
       child: AppGlassSurface(
         borderRadius: BorderRadius.circular(AppRadii.l),
         padding: const EdgeInsets.symmetric(
@@ -312,7 +340,7 @@ class _NavItem extends StatelessWidget {
             const SizedBox(height: AppSpacing.xs / 2),
             Text(
               destination.label,
-              style: theme.typography.label.copyWith(color: color),
+              style: theme.typography.label.copyWith(color: color, fontSize: 10),
               textAlign: TextAlign.center,
             ),
           ],

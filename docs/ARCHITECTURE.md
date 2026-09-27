@@ -36,7 +36,7 @@ babies/{babyId}
 
 growthEntries/{entryId}      { uid, babyId, date, weightKg, heightCm, headCircumferenceCm, note }
 milestones/{milestoneId}     { uid, babyId, type, customLabel, achievedDate, note, mediaDriveFileIds[] }
-memories/{memoryId}          { uid, babyId, date, caption, mediaDriveFileIds[], tags[] }
+memories/{memoryId}          { uid, babyId, date, title, caption, mediaDriveFileIds[], mediaMimeTypes[], milestoneLabel, location, tags[] }
 vaccinations/{vaccineId}     { uid, babyId, name, doseNumber, scheduledDate, administeredDate, status }
 documents/{docId}            { uid, babyId, title, category, driveFileId, mimeType, date, tags[] }
 doctorVisits/{visitId}       { uid, babyId, date, doctorName, reason, notes, prescriptionDriveFileIds[] }

@@ -16,4 +16,9 @@ class CareLogRepository extends FlatBabyEntityRepository<CareLogEntry> {
 
   Stream<List<CareLogEntry>> watchRecent() =>
       watchAll(orderBy: 'startTime', descending: true);
+
+  Future<void> stop(String id, DateTime endTime) =>
+      updateFields(id, {'endTime': Timestamp.fromDate(endTime)});
+
+  Future<void> resume(String id) => updateFields(id, {'endTime': null});
 }

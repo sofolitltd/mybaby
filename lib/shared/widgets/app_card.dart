@@ -4,8 +4,8 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion/tap_scale.dart';
 import 'app_glass_surface.dart';
 
-/// Frosted-glass surface (blur + tinted fill + highlight border), optional
-/// tap feedback via [TapScale]. Replaces `Card` + `InkWell`. See
+/// Flat elevated surface (opaque fill + hairline border + soft shadow),
+/// optional tap feedback via [TapScale]. Replaces `Card` + `InkWell`. See
 /// docs/DESIGN_SYSTEM.md#8-components.
 class AppCard extends StatelessWidget {
   const AppCard({

@@ -6,6 +6,13 @@ const _extensionMimeTypes = {
   'webp': 'image/webp',
   'heic': 'image/heic',
   'pdf': 'application/pdf',
+  'mp4': 'video/mp4',
+  'mov': 'video/quicktime',
+  'm4v': 'video/x-m4v',
+  'doc': 'application/msword',
+  'docx':
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'txt': 'text/plain',
 };
 
 String guessMimeType(String filename) {
@@ -14,3 +21,5 @@ String guessMimeType(String filename) {
 }
 
 bool isImageMimeType(String mimeType) => mimeType.startsWith('image/');
+
+bool isVideoMimeType(String mimeType) => mimeType.startsWith('video/');

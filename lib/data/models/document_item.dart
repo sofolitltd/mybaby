@@ -1,5 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+const documentCategories = [
+  'Vaccine Card',
+  'Growth Report',
+  'Prescription',
+  'Other',
+];
+
 class DocumentItem {
   final String id;
   final DateTime date;

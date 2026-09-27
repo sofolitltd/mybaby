@@ -5,6 +5,7 @@ import 'core/providers.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/theme_controller.dart';
 import 'features/onboarding/onboarding_screen.dart';
+import 'shared/widgets/web_selection_area.dart';
 
 /// Built once — the signed-in app's routes don't depend on any state that
 /// changes identity, so there's no need to rebuild the router itself.
@@ -83,7 +84,7 @@ Widget _plainApp(AppThemeMode mode, Widget home) {
     builder: (context, child) => AppThemeProvider(child: child!),
     // Safe here (unlike the builder above): `home` is placed inside this
     // MaterialApp's own Navigator/Overlay, not above it.
-    home: SelectionArea(child: home),
+    home: WebSelectionArea(child: home),
   );
 }
 

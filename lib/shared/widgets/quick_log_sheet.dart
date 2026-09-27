@@ -1,7 +1,9 @@
-import 'package:flutter/material.dart' show ScaffoldMessenger, SnackBar, SnackBarAction;
+import 'package:flutter/material.dart'
+    show ScaffoldMessenger, ScaffoldMessengerState, SnackBar, SnackBarAction;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
@@ -9,21 +11,46 @@ import '../../core/theme/motion/sheet_transition.dart';
 import '../../core/theme/motion/tap_scale.dart';
 import '../../data/firestore/care_log_repository.dart';
 import '../../data/models/care_log_entry.dart';
+import '../../features/care_log/providers/active_care_log_timers_provider.dart';
 import 'app_button.dart';
 
 /// One-tap logging bottom sheet — no confirm step, per docs/UX.md
-/// "Undo, not confirm". Diaper logs instantly on tap; feed/sleep start a timer.
+/// "Undo, not confirm". Diaper logs instantly on tap; feed/sleep start a
+/// timer that's persisted immediately (so it survives dismissing this
+/// sheet) and shown on Home until stopped.
 Future<void> showQuickLogSheet(
   BuildContext context,
   WidgetRef ref,
   CareLogType type,
-) {
+) async {
   final repo = ref.read(careLogRepositoryProvider);
-  if (repo == null) return Future.value();
+  if (repo == null) return;
   if (type == CareLogType.diaper) {
     return _showDiaperSheet(context, repo);
   }
-  return _showTimerSheet(context, repo, type);
+
+  CareLogEntry? existing;
+  for (final e in ref.read(activeCareLogTimersProvider)) {
+    if (e.type == type) {
+      existing = e;
+      break;
+    }
+  }
+
+  final String id;
+  final DateTime startedAt;
+  if (existing != null) {
+    id = existing.id;
+    startedAt = existing.startTime;
+  } else {
+    startedAt = DateTime.now();
+    id = await repo.add(
+      CareLogEntry(id: '', type: type, startTime: startedAt),
+    );
+  }
+
+  if (!context.mounted) return;
+  return _showTimerSheet(context, repo, type, id: id, startedAt: startedAt);
 }
 
 Future<void> _showDiaperSheet(BuildContext context, CareLogRepository repo) {
@@ -35,6 +62,11 @@ Future<void> _showDiaperSheet(BuildContext context, CareLogRepository repo) {
         icon: icon,
         label: label,
         onTap: () async {
+          // Captured before popping: the sheet's context is unmounted mid
+          // pop-animation, and calling ScaffoldMessenger.of(context) after
+          // that leaves the SnackBar's dismiss timer tied to a disposed
+          // ticker, so it shows but never auto-closes.
+          final messenger = ScaffoldMessenger.of(context);
           Navigator.of(context).pop();
           final id = await repo.add(
             CareLogEntry(
@@ -44,9 +76,7 @@ Future<void> _showDiaperSheet(BuildContext context, CareLogRepository repo) {
               subtype: label,
             ),
           );
-          if (context.mounted) {
-            _snack(context, 'Diaper logged — $label', () => repo.delete(id));
-          }
+          _snack(messenger, 'Diaper logged — $label', () => repo.delete(id));
         },
       );
       return Column(
@@ -80,13 +110,14 @@ Future<void> _showDiaperSheet(BuildContext context, CareLogRepository repo) {
 Future<void> _showTimerSheet(
   BuildContext context,
   CareLogRepository repo,
-  CareLogType type,
-) {
+  CareLogType type, {
+  required String id,
+  required DateTime startedAt,
+}) {
   final label = type == CareLogType.feed ? 'Feed' : 'Sleep';
   final icon = type == CareLogType.feed
       ? LucideIcons.glass_water
       : LucideIcons.moon;
-  final startedAt = DateTime.now();
   return showAppSheet(
     context: context,
     builder: (context) {
@@ -111,7 +142,7 @@ Future<void> _showTimerSheet(
             ),
             const SizedBox(height: AppSpacing.xs),
             Text(
-              'Started just now — leave the app, it keeps running.',
+              'Started ${DateFormat.jm().format(startedAt)} — leave the app, it keeps running.',
               textAlign: TextAlign.center,
               style: theme.typography.body.copyWith(
                 color: theme.colors.textSecondary,
@@ -122,18 +153,10 @@ Future<void> _showTimerSheet(
               width: double.infinity,
               child: AppButton(
                 onPressed: () async {
+                  final messenger = ScaffoldMessenger.of(context);
                   Navigator.of(context).pop();
-                  final id = await repo.add(
-                    CareLogEntry(
-                      id: '',
-                      type: type,
-                      startTime: startedAt,
-                      endTime: DateTime.now(),
-                    ),
-                  );
-                  if (context.mounted) {
-                    _snack(context, '$label logged', () => repo.delete(id));
-                  }
+                  await repo.stop(id, DateTime.now());
+                  _snack(messenger, '$label logged', () => repo.resume(id));
                 },
                 child: Text(
                   'Stop and save',
@@ -191,11 +214,16 @@ class _SheetOption extends StatelessWidget {
 
 // AppSnackbar isn't built yet (see docs/DESIGN_SYSTEM.md#8-components) — the
 // Material SnackBar is the documented interim fallback.
-void _snack(BuildContext context, String message, VoidCallback onUndo) {
-  ScaffoldMessenger.of(context).showSnackBar(
+void _snack(
+  ScaffoldMessengerState messenger,
+  String message,
+  VoidCallback onUndo,
+) {
+  messenger.showSnackBar(
     SnackBar(
       content: Text(message),
       action: SnackBarAction(label: 'Undo', onPressed: onUndo),
+      showCloseIcon: true,
     ),
   );
 }

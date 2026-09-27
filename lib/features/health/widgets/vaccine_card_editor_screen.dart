@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui';
 
 import 'package:crop_your_image/crop_your_image.dart';
 import 'package:flutter/foundation.dart' show compute;
@@ -130,48 +129,40 @@ class _EditorTopBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AppTheme.of(context);
-    final glass = theme.colors.glass;
+    final colors = theme.colors;
     return SafeArea(
       bottom: false,
-      child: ClipRect(
-        child: BackdropFilter(
-          filter: ImageFilter.blur(
-            sigmaX: AppGlass.blurSigma,
-            sigmaY: AppGlass.blurSigma,
-          ),
-          child: Container(
-            height: preferredSize.height,
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
-            decoration: BoxDecoration(
-              color: glass.fill,
-              border: Border(bottom: BorderSide(color: glass.border)),
+      child: Container(
+        height: preferredSize.height,
+        padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+        decoration: BoxDecoration(
+          color: colors.surface,
+          border: Border(bottom: BorderSide(color: colors.hairline)),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Crop vaccine card',
+                style: theme.typography.subtitle.copyWith(
+                  color: colors.textPrimary,
+                ),
+              ),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Crop vaccine card',
-                    style: theme.typography.subtitle.copyWith(
-                      color: theme.colors.textPrimary,
-                    ),
+            TapScale(
+              onTap: onCancel,
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s),
+                child: Text(
+                  'Cancel',
+                  style: theme.typography.label.copyWith(
+                    color: colors.textSecondary,
                   ),
                 ),
-                TapScale(
-                  onTap: onCancel,
-                  borderRadius: BorderRadius.circular(AppRadii.pill),
-                  child: Padding(
-                    padding: const EdgeInsets.all(AppSpacing.s),
-                    child: Text(
-                      'Cancel',
-                      style: theme.typography.label.copyWith(
-                        color: theme.colors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );

@@ -1,8 +1,8 @@
-# MyBaby — Design System (v2 — Glass)
+# MyBaby — Design System (v3 — Serene Nurture)
 
 _Companion to [UX.md](./UX.md), which stays the source of truth for screen content and interaction behavior. This doc is the visual/engineering spec: the tokens, components, and motion that deliver UX.md's principles without leaning on Material Design's defaults._
 
-**v2 changelog**: full visual redesign — richer/more saturated primary, a new bold `accent` color (used only for the active-nav selected pill), a neutral white→light-grey background gradient (briefly tried pink/coral and a primary-to-accent button gradient; both were reverted — see below), and a frosted-glass ("transparent modern") material replacing the v1 flat-fill-plus-hairline-border look for cards, nav, and sheets. Font switched from Nunito to Inter (see §4); the type scale itself, spacing, radii, and motion durations/curves are unchanged from v1.
+**v3 changelog**: full visual redesign following a Stitch design system called "Serene Nurture" — a flat, card-based "organic minimalism" replacing v2's frosted-glass look. Cards, nav, sheets, and buttons are now opaque surfaces with soft ambient shadows instead of `BackdropFilter` blur. Primary color is now a calmer eucalyptus green, with two new semantic accents (warm amber, soft coral) used to tint activity types (sleep/feed/diaper). Font switched from Inter to Plus Jakarta Sans. Radii, spacing rhythm, and motion durations/curves are otherwise unchanged from v2.
 
 ## 1. Purpose
 
@@ -16,52 +16,48 @@ Extends UX.md's principles with three more that are specific to the visual syste
 
 1. **Calm, not clinical** _(from UX.md)_ — warm color, plain language, no alarm red.
 2. **One-handed, at 3am** _(from UX.md)_ — large touch targets, no confirmation dialogs for routine logging.
-3. **Transparent, layered, one material** — surfaces are frosted glass: blur + a tinted translucent fill + a bright hairline-highlight border, floating over a soft gradient background. Every glass surface in the app (cards, nav, sheets, app bar) uses the *same* blur radius and the *same* per-mode fill/border pair (`AppGlass`/`GlassColors`) via one shared widget (`AppGlassSurface`) — never a bespoke blur value per screen.
+3. **Flat and legible, not decorative** — surfaces are opaque cards with soft ambient shadows, not translucent/blurred glass. Every elevated surface in the app (cards, nav, sheets, buttons) uses the same fill/border/shadow recipe (`AppColors.surface` + `AppColors.hairline` + one of `AppShadows`) via one shared widget (`AppGlassSurface`) — never a bespoke shadow value per screen.
 4. **Deliberate motion, never decorative** — every animation communicates something (this appeared, this is now selected, this is temporarily elevated). Nothing animates just to look busy; nothing bounces or overshoots.
 
 ## 3. Color
 
-Palette is hand-picked, not algorithmically derived. `primary` is a richer, more saturated forest-sage than v1 — still warm-neutral, not clinical blue. `accent` (indigo-violet) exists as a token but isn't currently used anywhere visible — an earlier iteration used a `primary`→`accent` gradient for every selected/active chip and pill (nav item, segmented controls, toggles, step dots), but that was reverted to a single solid `primary` fill per feedback ("no gradients"). Status colors are untouched from v1: they're semantic, not decorative, so the visual redesign doesn't touch their hue.
+Palette follows the Stitch "Serene Nurture" design system for light mode; `dark` and `night` are derived from the same hue family (brightened for dark, dimmed for night) since the source design is light-only.
 
 | Token | Light | Dark | Night |
 |---|---|---|---|
-| `backgroundGradient` (2-stop, top→bottom) | `#FFFFFF` → `#F2F2F4` (white, barely-there grey) | `#18181B` → `#1E1E21` | `#0A0A0B` → `#0E0E10` |
-| `surface` (solid fallback, e.g. text field fill) | `#FFFFFF` | `#20241D` | `#12140F` |
-| `surfaceSunken` | `#EFEAE0` | `#12140F` | `#060704` |
-| `hairline` | `#DEDAD0` | `#2E332A` | `#1C1F18` |
-| `primary` | `#2F7A54` (richer/more saturated than v1's `#4F7A64`) | `#6FBE95` (brightened for dark bg) | `#3F6B54` (dimmed) |
-| `accent` **(new)** | `#6C5CE0` | `#9C8FFF` (brightened) | `#4E4590` (dimmed) |
-| `onPrimary` | `#FFFFFF` | `#12140F` | `#0A0C08` |
-| `onGlassProminent` (label on `AppButton` primary) | `#23271F` | `#20241D` | `#ECF0E6` |
-| `textPrimary` | `#23271F` | `#ECF0E6` | `#B9C2AE` (reduced brightness) |
-| `textSecondary` | `#5F6A5A` | `#AAB3A0` | `#6D7566` |
-| `textTertiary` | `#93998C` | `#6E7568` | `#454A40` |
-| `status.done` | `#4C8C8A` (teal — distinct from `primary`'s green) | `#4C8C8A` | `#375F5D` (dimmed) |
-| `status.dueSoon` | `#DE9A3C` | `#DE9A3C` | `#A5722C` (dimmed) |
-| `status.overdue` | `#C96A57` | `#C96A57` | `#95503F` (dimmed) |
-| `glass.fill` | `#EDEDF1` @ 94% (grey-tinted, not pure white — see below) | `#FFFFFF` @ 25% | `#FFFFFF` @ 15% |
-| `glass.border` | `#FFFFFF` @ 80% | `#FFFFFF` @ 30% | `#FFFFFF` @ 19% |
-| `glass.prominentFill` (`AppButton` primary only) | `#FFFFFF` @ 90% | `#FFFFFF` @ 70% | `#FFFFFF` @ 25% |
+| `background` (canvas) | `#F8F9FA` | `#18181B` | `#0A0A0B` |
+| `surface` (cards, fields) | `#FFFFFF` | `#1F2422` | `#141715` |
+| `surfaceSunken` (tracks, chip backgrounds) | `#F3F4F6` | `#262B28` | `#1B1E1A` |
+| `hairline` | `#E5E7EB` | `#32382F` | `#24271F` |
+| `primary` (eucalyptus — sleep, primary CTA, active nav) | `#2D6A4F` | `#52A37A` | `#3F6B54` (dimmed) |
+| `secondary` (warm amber — feed, reminders) | `#D97706` | `#F2A65A` | `#8A5A25` (dimmed) |
+| `tertiary` (soft coral — diaper, wellness) | `#E07A5F` | `#F0947D` | `#8A5546` (dimmed) |
+| `onPrimary` | `#FFFFFF` | `#0B1F16` | `#E9ECE6` |
+| `textPrimary` | `#1F2937` | `#ECEFEA` | `#A9B0A6` (reduced brightness) |
+| `textSecondary` | `#4B5563` | `#AEB6AA` | `#6B7268` |
+| `textTertiary` | `#9CA3AF` | `#6E7568` | `#45493F` |
+| `status.done` | `#4C8C8A` | `#6FBBB8` | `#3C6664` (dimmed) |
+| `status.dueSoon` (= `secondary`) | `#D97706` | `#F2A65A` | `#8A5A25` |
+| `status.overdue` (= `tertiary`) | `#E07A5F` | `#F0947D` | `#8A5546` |
+| `info` (sleep only) | `#6366F1` | `#8B87F0` | `#4B4894` (dimmed) |
 
-**Usage**: status colors are reserved for meaning (vaccination status, sync state) — never decorative. `primary` (green) is *not* used to mark selected/active tab-like states — an earlier iteration filled every selected chip/nav-item/toggle with solid `primary`, but per feedback that read as "too green" and didn't match the iOS segmented-control look being targeted. Selected states are now `colors.surface` (a solid near-white/elevated pill) with a `colors.textPrimary` (black-ish) label — nav item, segmented controls (Growth's measure toggle, baby-form's sex picker), achieved-milestone chips (Memories), onboarding step dots (`textPrimary` fill, no label) — sitting on a `colors.surfaceSunken` (grey) track/background, exactly like iOS's white-selected-segment-on-grey-track pattern. The Settings toggle follows the same idea: `colors.textTertiary` (grey) track when on, `colors.surfaceSunken` when off, white knob throughout. `primary` itself is now reserved for small accent touches only (e.g. an inline "add" icon, a focused input border) — never a selection fill. It's no longer used for the primary button either (see `AppButton` in §8: its CTA is white glass, not a color). `status.done` uses a teal rather than green specifically so a "done" pill never reads as an extension of the `primary` accent. `glass.fill`/`glass.border`/`glass.prominentFill` are used *only* through `AppGlassSurface` — never referenced directly by a screen.
+**Usage**: activity-type tinting (`lib/shared/care_log_type_style.dart`, used by Home's quick-log cards and the Care Log timeline) follows the actual Stitch mockups rather than the Serene Nurture prose: **amber (`secondary`) for feed, indigo (`info`) for sleep, eucalyptus (`primary`) for diaper** — the mockups consistently render sleep with a blue/lavender icon that has no equivalent in the exported token list, so `info` was added specifically for it. Status colors are reserved for meaning (vaccination status) — never decorative; `status.dueSoon`/`status.overdue` deliberately alias `secondary`/`tertiary`, while `status.done` stays a distinct teal so "done" never reads as an extension of `primary`. Selected/active states (nav items, chips, segmented controls) use a soft `primary.withValues(alpha: 0.12)` tint rather than a solid fill, so the accent stays legible without dominating the flat white surfaces around it.
 
-**Contrast**: `textPrimary` on `surface`/glass fills meets WCAG AA (4.5:1) in all three modes. Night mode's dimmed `status.*`, `primary`, and `accent` values were chosen to still clear 4.5:1 — dimmed means lower saturation/brightness, not lower contrast. Night mode's glass opacity is also the lowest of the three modes (15%/19%), so frosted panels stay close to the near-black background rather than brightening the screen.
-
-**Container depth**: against the now-neutral white/grey background (see below), a purely white translucent fill at low opacity didn't read as a distinct raised surface — it blended into the page. Light mode's `glass.fill` is therefore a grey-tinted white (`#EDEDF1`) at higher opacity (94%, up from v2's original 55%) rather than pure white, and `AppShadows.glass` was strengthened (`blurRadius` 40→44, opacity ~13%→~16%) so every card/nav/sheet reads as clearly sitting above the background rather than blurring into it.
+**Contrast**: `textPrimary` on `surface` meets WCAG AA (4.5:1) in all three modes. Night mode's dimmed `primary`/`secondary`/`tertiary`/`status.*` values were chosen to still clear 4.5:1 against `night`'s near-black background — dimmed means lower saturation/brightness, not lower contrast.
 
 ## 4. Typography
 
-Font: **Inter** (replaces v1/early-v2's Nunito — Nunito's rounded warmth read as mismatched against the glass/neutral redesign; Inter is neutral, modern, and highly legible at small sizes, closer to the system-font feel of iOS/Android). Scale (sizes/weights/line-heights) is unchanged from v1.
+Font: **Plus Jakarta Sans** (replaces v2's Inter, per the Stitch spec — a slightly warmer, more humanist geometry than Inter while staying highly legible at small sizes). Scale (sizes/weights/line-heights) is unchanged from v2.
 
 | Token | Size | Weight | Line height | Usage |
 |---|---|---|---|---|
 | `numeralXL` | 40sp | w800 | 1.1 | Hero measurements (age, weight/height on Growth) |
-| `numeralL` | 28sp | w800 | 1.15 | Card-level measurements (Home growth snapshot) |
+| `numeralL` | 28sp | w800 | 1.15 | Card-level measurements (Home growth snapshot, Care Log stats) |
 | `title` | 20sp | w800 | 1.25 | Screen/section titles, app bar |
 | `subtitle` | 16sp | w700 | 1.3 | Card titles, list item primary text |
 | `body` | 15sp | w500 | 1.45 | Body copy, list secondary text |
 | `caption` | 13sp | w600 | 1.4 | Timestamps, helper text |
-| `label` | 12sp | w700 | 1.3 | Buttons, nav labels, status pills |
+| `label` | 12sp | w700 | 1.3 | Buttons, nav labels, status pills, chips |
 
 Text styles carry no color — callers apply `AppColors` explicitly, so a style is never silently tied to a Material role.
 
@@ -69,7 +65,7 @@ Text styles carry no color — callers apply `AppColors` explicitly, so a style 
 
 ## 5. Spacing & Layout
 
-Unchanged from v1. 4pt grid:
+Unchanged from v1/v2. 4pt grid:
 
 | Token | Value |
 |---|---|
@@ -81,28 +77,28 @@ Unchanged from v1. 4pt grid:
 | `xxl` | 28 |
 | `xxxl` | 40 |
 
-Breakpoints: see `lib/core/responsive/breakpoints.dart`. Wide layout switches the bottom pill nav for a floating glass rail on the left (see §8 `AppNavShell`); `ContentColumn` caps content width at `kContentMaxWidth` (720) on wide/web viewports.
+Breakpoints: see `lib/core/responsive/breakpoints.dart`. Wide layout switches the bottom tab bar for a floating flat rail on the left (see §7 `AppShell`); `ContentColumn` caps content width at `kContentMaxWidth` (720) on wide/web viewports.
 
 ## 6. Radii, Borders & Elevation
 
-Unchanged from v1:
+Retargeted to the Serene Nurture spec's scale (values changed from v2; token names unchanged):
 
 | Token | Value | Usage |
 |---|---|---|
-| `radii.s` | 12 | Buttons, inputs |
-| `radii.m` | 20 | Cards |
-| `radii.l` | 28 | Sheets, wide nav rail |
-| `radii.pill` | 999 | Status pills, bottom nav pill, nav indicator |
+| `radii.s` | 8 | Inputs, small chips |
+| `radii.m` | 16 | Cards — every informational container shares this curvature |
+| `radii.l` | 24 | Sheet top corners |
+| `radii.pill` | 999 | Buttons, chips, nav items |
 
-**Glass philosophy (replaces v1's "flat + border")**: every elevated surface — cards, the floating nav, bottom sheets, the app bar — is frosted glass: `BackdropFilter` blur at one fixed radius (`AppGlass.blurSigma = 20`) + the current mode's `glass.fill`/`glass.border`, built through the single shared `AppGlassSurface` widget so the material reads as consistent everywhere, never a per-screen effect.
+Elevation is now expressed as soft ambient shadows on opaque surfaces, not blur:
 
-Two shadow tokens, both reserved for things genuinely above the flow (never a flat/solid content's default):
-- `AppShadows.floating` — sheets, snackbars.
-- `AppShadows.glass` — cards, the floating nav pill/rail; softer and wider than `floating` so glass reads as resting just above the gradient.
+- `AppShadows.card` — Level 1, cards resting on the canvas: `0 4px 20px rgba(17,24,39,.04)` + `0 2px 6px rgba(17,24,39,.02)`.
+- `AppShadows.nav` — Level 2, docked/floating navigation: `0 12px 32px rgba(17,24,39,.08)` + `0 4px 12px rgba(17,24,39,.03)`.
+- `AppShadows.modal` — Level 3, bottom sheets: `0 -8px 30px rgba(0,0,0,.08)`, diffused upward.
 
 ## 7. Motion
 
-Unchanged from v1. Philosophy: **calm and elegant, not playful** — longer-than-Material durations, one consistent easing family, never bounce or overshoot.
+Unchanged from v1/v2. Philosophy: **calm and elegant, not playful** — longer-than-Material durations, one consistent easing family, never bounce or overshoot.
 
 | Token | Value |
 |---|---|
@@ -111,13 +107,7 @@ Unchanged from v1. Philosophy: **calm and elegant, not playful** — longer-than
 | `durationMedium` | 260ms — element/card transitions, page transitions |
 | `durationSlow` | 420ms — sheets |
 
-Primitives (`lib/core/theme/motion/`):
-
-- **`TapScale`** — wraps any tappable; scales to 0.97 on press-down, reverses on release. Replaces `InkWell` ripple everywhere.
-- **`AppPageTransition`** — go_router `CustomTransitionPage`: cross-fade + subtle upward slide, `durationMedium`, `curveStandard`. Replaces Material's slide-from-right.
-- **`StaggeredListEntrance`** — wraps a list of children with a `flutter_animate` fade + slide-up entrance, 40–60ms stagger between items. Used for card/list content appearing on screen load.
-- **`AppSheetTransition`** (`showAppSheet`) — bottom-sheet slide-up + fade, `durationSlow`, `curveStandard`, frosted-glass chrome.
-- **`SyncPulse`** — a slow (1.8s), low-amplitude breathing-opacity loop for the sync indicator dot (see UX.md "Sync indicator"), using `curveStandard` like every other motion primitive.
+Primitives (`lib/core/theme/motion/`) are unaffected by the visual redesign — durations/curves/`TapScale`/`StaggeredListEntrance`/`SyncPulse`/`AppPageTransition` are independent of the glass-vs-flat material choice.
 
 **Don'ts**: no bounce/spring/overshoot curves anywhere in the app. No transition longer than 450ms. No animation without a semantic reason (state change, entrance, temporary elevation).
 
@@ -125,20 +115,23 @@ Primitives (`lib/core/theme/motion/`):
 
 All in `lib/shared/widgets/` unless noted.
 
-### `AppGlassSurface` **(new in v2)**
-The one frosted-glass container everything else is built from: `BackdropFilter` blur (`AppGlass.blurSigma`) + `ClipRRect` + `Container` with `colors.glass.fill`/`colors.glass.border`, optional `AppShadows.glass`. Takes `borderRadius`/`padding`. Any new translucent surface should be built from this, not a hand-rolled `BackdropFilter`.
+### `AppGlassSurface`
+The one elevated-surface primitive every card, button, nav bar, and sheet in the app is built from: an opaque `colors.surface` fill (or an override, e.g. `AppButton`'s primary variant filling with `colors.primary`), an optional hairline border (`border: true` by default), and one of `AppShadows`'s elevation levels. Despite the name (kept from v2 to avoid unnecessary churn), it no longer blurs anything — see §2 principle 3.
 
 ### `AppCard`
-Now a thin wrapper around `AppGlassSurface` (`radii.m` corners), optional `onTap` wrapped in `TapScale`. Replaces `Card` + `InkWell`.
+A thin wrapper around `AppGlassSurface` at `radii.m` (16px), optional `onTap` wrapped in `TapScale`. Replaces `Card` + `InkWell`.
 
 ### `AppButton`
-All three variants are frosted glass — no color gradient. `primary` uses `colors.glass.prominentFill` (a brighter white glass than the ambient `glass.fill`, with label color `colors.onGlassProminent`) — the iOS-26/27-style "Liquid Glass" CTA treatment: white and translucent, standing out by brightness rather than hue. `tonal`/`secondary` use the ambient glass fill with `textPrimary` labels. 48×48dp minimum size, `TapScale` built in, label uses `AppTypography.label`.
+Full pill geometry (`radii.pill`), three variants: `primary` is a solid `colors.primary` fill with `colors.onPrimary` label; `tonal` is a soft `colors.primary`-tinted fill with `colors.primary` label; `secondary` is a hairline-bordered `colors.surfaceSunken` fill with `colors.textPrimary` label. 48×48dp minimum size, `TapScale` built in.
+
+### `AppChip`
+A flat selectable pill — used for the Care Log activity filter row (`All / Feed / Sleep / Diaper`) and Memories' milestone chips. Selected = soft `primary`-tinted fill + `primary` label; unselected = `surfaceSunken` fill + `textSecondary` label.
 
 ### `AppStatusPill`
-Icon + **required** text label (never color-only) on a soft `status.*`-tinted background, `radii.pill`. Replaces `Chip`. The label is a required constructor argument — structurally enforces UX.md's "color is never the only signal" rule. Unchanged visually from v1 (solid tint, not glass) so status meaning stays maximally legible.
+Icon + **required** text label (never color-only) on a soft `status.*`-tinted background, `radii.pill`. Replaces `Chip`. The label is a required constructor argument — structurally enforces UX.md's "color is never the only signal" rule.
 
 ### `AppScaffold`
-Wraps `Scaffold`: paints `colors.backgroundGradient` behind everything (`extendBodyBehindAppBar: true` so it shows through the frosted app bar), applies safe-area handling, and exposes a `syncIndicator` slot pinned top-right. Still a real `Scaffold` underneath (keyboard/a11y plumbing unaffected).
+Wraps `Scaffold`: paints the flat `colors.background` canvas fill behind everything, applies safe-area handling, and exposes a `syncIndicator` slot pinned top-right.
 
 ### `AppSectionHeader`
 Small uppercase-ish label (`AppTypography.label`, `colors.primary`) with an optional trailing action, used atop grouped content.
@@ -146,10 +139,13 @@ Small uppercase-ish label (`AppTypography.label`, `colors.primary`) with an opti
 ### `AppEmptyState`
 Icon + one-line prompt, used for empty lists (growth entries, memories, vaccinations) per UX.md.
 
-### Nav (`lib/features/shell/app_shell.dart`) **(redesigned in v2)**
-- **Phone**: a floating glass pill — `AppGlassSurface` at `radii.pill`, positioned with margin on all sides (`AppSpacing.xl` sides, `AppSpacing.l` bottom) so the background shows around it and content scrolls underneath. Selected item gets a fully circular (`radii.pill`) `colors.surface` chip with a `textPrimary` icon+label (the iOS segmented-control look); unselected items are transparent with a `textTertiary` icon+label.
-- **Wide/web**: the rail equivalent — a fixed-width (88) `AppGlassSurface` at `radii.l`, floating with `AppSpacing.l` margin on the left rather than docked full-height as in v1.
-- **App bar**: a full-width frosted glass strip (blur + `glass.fill`/`glass.border`, bottom border only, no corner radius) rather than v1's solid fill + hairline.
+### Per-activity tinting (`lib/shared/care_log_type_style.dart`)
+`careLogTypeColor`/`careLogTypeIconLabel` map `CareLogType` (feed/sleep/diaper) to the icon, label, and tint (`secondary`/`info`/`primary` respectively) used by Home's quick-log cards, Home's "Today's Activity" feed, and the Care Log timeline, so no two screens drift apart on which color means which activity. `computeDailyStats`/`isToday` in the same file are the shared "today's sleep/feed/diaper totals" calculation Home and Care Log both build on.
+
+### Nav (`lib/features/shell/app_shell.dart`) **(redesigned in v3)**
+- **Phone**: a flush, full-width flat bottom tab bar (`colors.surface`, top hairline, `AppShadows.nav`), passed to `AppScaffold`'s real `bottomNavigationBar` slot — replaces v2's floating glass pill. Selected item gets a soft `primary`-tinted pill background with a `primary` icon+label; unselected items are `textTertiary`.
+- **Wide/web**: a floating flat rail (`AppGlassSurface` at `radii.l`), same layout as v2, just flat instead of glass.
+- **App bar**: a flat `colors.surface` strip with a bottom hairline border, no blur — replaces v2's frosted strip.
 
 _(`AppTextField`, `AppBottomSheet` as a dedicated component (its behavior already exists via `showAppSheet`, just not wrapped as a named widget), `AppAppBar`, `AppSnackbar` are part of the intended full system but not yet built — see Adoption tracker.)_
 
@@ -160,13 +156,12 @@ These are **not** the same thing:
 | | Dark | Night |
 |---|---|---|
 | Purpose | Standard low-light UI, matches OS dark mode | *True* low-light mode for 3am logging — minimum light output |
-| Background gradient | `#18181B` → `#1E1E21` | `#0A0A0B` → `#0E0E10` (near-black) |
-| Accent (`primary`) | Full-brightness `#6FBE95` | Dimmed `#3F6B54` |
-| Status colors | Full-brightness | Dimmed variants |
-| Glass opacity | 20%/25% (fill/border) | 12%/15% — lowest of the three modes, to avoid brightening the screen |
+| Background | `#18181B` | `#0A0A0B` (near-black) |
+| Accent (`primary`) | Brightened `#52A37A` | Dimmed `#3F6B54` |
+| Status colors | Brightened | Dimmed variants |
 | Selected via | System dark mode, or explicit user choice | Explicit user choice only (Settings → Appearance) |
 
-Night is a fourth `AppThemeMode` value (`light` / `dark` / `night` / `system`), not derived from `dark` — see `lib/core/theme/theme_controller.dart`.
+Night is a fourth `AppThemeMode` value (`light` / `dark` / `night` / `system`), not derived from `dark` — see `lib/core/theme/theme_controller.dart`. Neither mode is in the source Stitch design (which is light-only); both are extrapolated from the same eucalyptus/amber/coral hue family using the same brighten-for-dark/dim-for-night approach v2 used.
 
 ## 10. Accessibility
 
@@ -177,18 +172,18 @@ Carried forward from UX.md, with where each is enforced:
 - **Chart data-table fallback** — unchanged, owned by the Growth screen (`fl_chart` usage), not a token concern.
 - **Touch targets** — `AppButton` and quick-log controls enforce a 48×48dp minimum.
 - **130% text scale** — no fixed-height text containers; verify on any new component.
-- **Glass legibility** — text/icons are never placed directly on a glass surface without going through `AppTypography`'s `textPrimary`/`textSecondary` colors, which are chosen to clear 4.5:1 against the *blurred* background gradient in all three modes, not just the flat fill.
+- **Surface legibility** — text/icons use `AppTypography`'s `textPrimary`/`textSecondary` colors, chosen to clear 4.5:1 against the flat `surface`/`background` fills in all three modes.
 
 ## 11. Adoption Tracker
 
 | Screen | Status |
 |---|---|
-| Home | Showcased (v2 glass — inherited automatically via tokens, no changes needed) |
-| App shell (nav) | Showcased (v2 glass) |
-| Growth | In progress |
-| Memories | In progress |
-| Health | In progress |
-| Care Log | In progress |
-| Settings | In progress |
-| Onboarding | In progress |
-| Babies (add/edit forms) | In progress |
+| Home | Rebuilt to match the mockup's structure: combined growth+today's-stats card, inline (non-fixed) Quick Log section, live "Today's Activity" feed reading `careLogProvider`. Dropped the old separate vaccination-due/recent-memory cards, which the mockup doesn't show. |
+| App shell (nav) | Rebuilt: flush bottom bar + flat rail/top bar (no structural gap vs. mockup). |
+| Growth | Rebuilt: "Current Age" pill + big current-value readout above the segmented control, delta-since-previous-entry on each entry row, full-width bottom "Add Measurement" button (was a small floating chip). **Known gap**: the mockup's WHO percentile curve/tooltip isn't implemented — that needs an age/sex percentile reference dataset the app doesn't have; the chart still just plots the baby's own points. |
+| Memories | Rebuilt: milestones are now a boxed grid of icon-topped tiles (was a horizontal chip scroller), "Recent Memories" header with a pill "New Entry" button, full-width bottom "Capture Memory" button. **Known gap**: the mockup's colored category tag per memory ("Outdoor"/"Milestone") isn't implemented — `Memory` has no category field. |
+| Health | Rebuilt: added the "Health Status" summary card (protected/action-needed, derived from real vaccination data), merged the three separate add-actions into one full-width "Add Health Record" button with a type picker. |
+| Care Log | Rebuilt: richer "Today's Summary" card (icon + value + caption per stat), explicit "+ Add Entry" action, filter chips (`All`/`Feed`/`Sleep`/`Diaper`). |
+| Settings | Rebuilt: baby profile row with avatar + "N registered" badge, reminders grouped into one card (+ a third toggle), sign-out row shows the signed-in email. **Known gap**: the mockup's Units & Preferences and Family/Partner-sharing sections aren't implemented — both need new persisted settings/data models this pass didn't add. |
+| Onboarding | Already flat pre-v3 — inherited via tokens, no structural gap vs. mockup style. |
+| Babies (add/edit forms) | Already flat pre-v3 — inherited via tokens; mockup's richer "Add Baby" (birth measurements, Drive/partner toggles) not built — needs new model fields. |

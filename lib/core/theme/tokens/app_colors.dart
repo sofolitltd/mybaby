@@ -1,11 +1,8 @@
 import 'package:flutter/widgets.dart';
 
-import 'app_glass.dart';
-
 /// Status colors used for vaccination/health status pills and the sync
 /// indicator. Deliberately warm/muted rather than alarm-style — see
-/// docs/DESIGN_SYSTEM.md#3-color. Semantic, so untouched by the v2 glass
-/// redesign.
+/// docs/DESIGN_SYSTEM.md#3-color.
 class StatusColors {
   const StatusColors({
     required this.done,
@@ -19,119 +16,131 @@ class StatusColors {
 
   static const _light = StatusColors(
     done: Color(0xFF4C8C8A),
-    dueSoon: Color(0xFFDE9A3C),
-    overdue: Color(0xFFC96A57),
+    dueSoon: Color(0xFFD97706),
+    overdue: Color(0xFFE07A5F),
+  );
+
+  static const _dark = StatusColors(
+    done: Color(0xFF6FBBB8),
+    dueSoon: Color(0xFFF2A65A),
+    overdue: Color(0xFFF0947D),
   );
 
   static const _night = StatusColors(
-    done: Color(0xFF375F5D),
-    dueSoon: Color(0xFFA5722C),
-    overdue: Color(0xFF95503F),
+    done: Color(0xFF3C6664),
+    dueSoon: Color(0xFF8A5A25),
+    overdue: Color(0xFF8A5546),
   );
 }
 
-/// Bespoke color palette — hand-picked per docs/DESIGN_SYSTEM.md, not derived
-/// from a Material `ColorScheme.fromSeed`. Three explicit modes: light, dark,
-/// and a genuinely dimmer night mode (not just "darker dark").
+/// Bespoke color palette — hand-picked to match the "Serene Nurture" Stitch
+/// design system, not derived from a Material `ColorScheme.fromSeed`. Three
+/// explicit modes: light, dark, and a genuinely dimmer night mode (not just
+/// "darker dark"). Only `light` comes directly from the Stitch spec; `dark`
+/// and `night` are derived from the same eucalyptus/amber/coral hue family
+/// (brightened for dark, dimmed for night) since the source design is
+/// light-only. See docs/DESIGN_SYSTEM.md#3-color.
 class AppColors {
   const AppColors({
-    required this.backgroundGradient,
+    required this.background,
     required this.surface,
     required this.surfaceSunken,
     required this.hairline,
     required this.primary,
-    required this.accent,
+    required this.secondary,
+    required this.tertiary,
+    required this.info,
     required this.onPrimary,
-    required this.onGlassProminent,
     required this.textPrimary,
     required this.textSecondary,
     required this.textTertiary,
     required this.status,
-    required this.glass,
   });
 
-  /// Two-stop backdrop gradient every screen renders behind its content —
-  /// the subtle depth that frosted glass surfaces blur against. Replaces the
-  /// old flat `background` color.
-  final List<Color> backgroundGradient;
+  /// Level 0 canvas — the flat background every screen renders behind its
+  /// content.
+  final Color background;
+
+  /// Level 1 — flat white/near-white card fill.
   final Color surface;
+
+  /// Secondary container tone (tracks, sunken fields, chip backgrounds).
   final Color surfaceSunken;
+
+  /// 1px border color for cards/fields that need edge definition on a
+  /// low-contrast background.
   final Color hairline;
 
-  /// Quick-log accent and active-nav indicator. Paired with [accent] for the
-  /// primary-CTA gradient — never used as a general fill color.
+  /// Eucalyptus/sage — primary CTA fill, active-nav color, sleep tinting.
   final Color primary;
 
-  /// Bold secondary accent introduced in the v2 glass redesign — pairs with
-  /// [primary] in gradients (primary CTA, active nav pill); never used alone
-  /// as a status color.
-  final Color accent;
+  /// Warm amber — feed tinting, time-sensitive reminders.
+  final Color secondary;
+
+  /// Soft coral — diaper/health tinting, wellness alerts.
+  final Color tertiary;
+
+  /// Soft indigo/lavender — sleep tinting only. Not part of the Stitch
+  /// spec's named token list, but consistently used for sleep icons across
+  /// the Home and Care Log mockups, so it's carried as a fourth accent.
+  final Color info;
+
+  /// Label color on a `primary`-filled surface (e.g. `AppButton` primary).
   final Color onPrimary;
 
-  /// Label color for [AppButton]'s primary variant, whose fill is now a
-  /// brightness-varying white glass rather than a colored gradient — so the
-  /// legible label color depends on how light that mode's prominent glass
-  /// reads, not on the mode's ambient `textPrimary`.
-  final Color onGlassProminent;
   final Color textPrimary;
   final Color textSecondary;
   final Color textTertiary;
   final StatusColors status;
-  final GlassColors glass;
-
-  /// Convenience solid fallback for contexts that can't render a gradient
-  /// (e.g. the OS status bar). The gradient's first stop.
-  Color get background => backgroundGradient.first;
 
   factory AppColors.light() => const AppColors(
-    backgroundGradient: [Color(0xFFFFFFFF), Color(0xFFF2F2F4)],
+    background: Color(0xFFF8F9FA),
     surface: Color(0xFFFFFFFF),
-    surfaceSunken: Color(0xFFEFEAE0),
-    hairline: Color(0xFFDEDAD0),
-    primary: Color(0xFF2F7A54),
-    accent: Color(0xFF6C5CE0),
+    surfaceSunken: Color(0xFFF3F4F6),
+    hairline: Color(0xFFE5E7EB),
+    primary: Color(0xFF2D6A4F),
+    secondary: Color(0xFFD97706),
+    tertiary: Color(0xFFE07A5F),
+    info: Color(0xFF6366F1),
     onPrimary: Color(0xFFFFFFFF),
-    onGlassProminent: Color(0xFF23271F),
-    textPrimary: Color(0xFF23271F),
-    textSecondary: Color(0xFF5F6A5A),
-    textTertiary: Color(0xFF93998C),
+    textPrimary: Color(0xFF1F2937),
+    textSecondary: Color(0xFF4B5563),
+    textTertiary: Color(0xFF9CA3AF),
     status: StatusColors._light,
-    glass: GlassColors.light,
   );
 
   factory AppColors.dark() => const AppColors(
-    backgroundGradient: [Color(0xFF18181B), Color(0xFF1E1E21)],
-    surface: Color(0xFF20241D),
-    surfaceSunken: Color(0xFF12140F),
-    hairline: Color(0xFF2E332A),
-    primary: Color(0xFF6FBE95),
-    accent: Color(0xFF9C8FFF),
-    onPrimary: Color(0xFF12140F),
-    onGlassProminent: Color(0xFF20241D),
-    textPrimary: Color(0xFFECF0E6),
-    textSecondary: Color(0xFFAAB3A0),
+    background: Color(0xFF18181B),
+    surface: Color(0xFF1F2422),
+    surfaceSunken: Color(0xFF262B28),
+    hairline: Color(0xFF32382F),
+    primary: Color(0xFF52A37A),
+    secondary: Color(0xFFF2A65A),
+    tertiary: Color(0xFFF0947D),
+    info: Color(0xFF8B87F0),
+    onPrimary: Color(0xFF0B1F16),
+    textPrimary: Color(0xFFECEFEA),
+    textSecondary: Color(0xFFAEB6AA),
     textTertiary: Color(0xFF6E7568),
-    status: StatusColors._light,
-    glass: GlassColors.dark,
+    status: StatusColors._dark,
   );
 
   /// True low-light mode — near-black background, dimmed accent and status
-  /// colors, minimal glass opacity, for logging at night without a bright
-  /// flash. Distinct from [dark]; see
-  /// docs/DESIGN_SYSTEM.md#9-dark-mode-vs-night-mode.
+  /// colors, for logging at night without a bright flash. Distinct from
+  /// [dark]; see docs/DESIGN_SYSTEM.md#8-dark-mode-vs-night-mode.
   factory AppColors.night() => const AppColors(
-    backgroundGradient: [Color(0xFF0A0A0B), Color(0xFF0E0E10)],
-    surface: Color(0xFF12140F),
-    surfaceSunken: Color(0xFF060704),
-    hairline: Color(0xFF1C1F18),
+    background: Color(0xFF0A0A0B),
+    surface: Color(0xFF141715),
+    surfaceSunken: Color(0xFF1B1E1A),
+    hairline: Color(0xFF24271F),
     primary: Color(0xFF3F6B54),
-    accent: Color(0xFF4E4590),
-    onPrimary: Color(0xFF0A0C08),
-    onGlassProminent: Color(0xFFECF0E6),
-    textPrimary: Color(0xFFB9C2AE),
-    textSecondary: Color(0xFF6D7566),
-    textTertiary: Color(0xFF454A40),
+    secondary: Color(0xFF8A5A25),
+    tertiary: Color(0xFF8A5546),
+    info: Color(0xFF4B4894),
+    onPrimary: Color(0xFFE9ECE6),
+    textPrimary: Color(0xFFA9B0A6),
+    textSecondary: Color(0xFF6B7268),
+    textTertiary: Color(0xFF45493F),
     status: StatusColors._night,
-    glass: GlassColors.night,
   );
 }

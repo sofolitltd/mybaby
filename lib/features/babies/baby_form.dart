@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:file_picker/file_picker.dart' show FileType;
 import 'package:flutter/material.dart'
     show
         CircularProgressIndicator,
@@ -11,6 +11,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/picked_file.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion/app_motion.dart';
 import '../../core/theme/motion/tap_scale.dart';
@@ -36,7 +37,7 @@ class BabyForm extends StatefulWidget {
     required String name,
     required DateTime dob,
     String? sex,
-    PlatformFile? photo,
+    PickedFile? photo,
   })
   onSubmit;
   final bool submitting;
@@ -58,7 +59,7 @@ class _BabyFormState extends State<BabyForm> {
   late DateTime? _dob = widget.initialDob;
   late String? _sex = widget.initialSex;
   late bool _showMore = widget.initialSex != null;
-  PlatformFile? _photo;
+  PickedFile? _photo;
 
   bool get _canSubmit =>
       _nameController.text.trim().isNotEmpty &&
@@ -66,11 +67,7 @@ class _BabyFormState extends State<BabyForm> {
       !widget.submitting;
 
   Future<void> _pickPhoto() async {
-    final result = await FilePicker.platform.pickFiles(
-      withData: true,
-      type: FileType.image,
-    );
-    final file = result?.files.firstOrNull;
+    final file = await pickSingleFile(type: FileType.image);
     if (file != null) setState(() => _photo = file);
   }
 
@@ -167,10 +164,10 @@ class _BabyFormState extends State<BabyForm> {
           const SizedBox(height: AppSpacing.m),
           Row(
             children: [
-              if (_photo?.bytes != null) ...[
+              if (_photo != null) ...[
                 ClipOval(
                   child: Image.memory(
-                    _photo!.bytes!,
+                    _photo!.bytes,
                     width: 40,
                     height: 40,
                     fit: BoxFit.cover,

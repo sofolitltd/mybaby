@@ -1,9 +1,9 @@
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart' show ScaffoldMessenger, SnackBar;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/mime_utils.dart';
+import '../../core/picked_file.dart';
 import '../../core/providers.dart';
 import '../../data/firestore/babies_repository.dart';
 import '../../data/models/baby.dart';
@@ -27,15 +27,15 @@ class _EditBabyScreenState extends ConsumerState<EditBabyScreen> {
     required String name,
     required DateTime dob,
     String? sex,
-    PlatformFile? photo,
+    PickedFile? photo,
   }) async {
     final repo = ref.read(babiesRepositoryProvider);
     if (repo == null) return;
     setState(() => _saving = true);
     try {
       await repo.updateBaby(id: widget.baby.id, name: name, dob: dob, sex: sex);
-      if (photo?.bytes != null) {
-        await _uploadAvatar(repo, widget.baby.id, photo!);
+      if (photo != null) {
+        await _uploadAvatar(repo, widget.baby.id, photo);
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -52,13 +52,13 @@ class _EditBabyScreenState extends ConsumerState<EditBabyScreen> {
   Future<void> _uploadAvatar(
     BabiesRepository repo,
     String babyId,
-    PlatformFile photo,
+    PickedFile photo,
   ) async {
     try {
       final drive = ref.read(driveRepositoryProvider);
       final folderId = await drive.ensureAppFolder();
       final fileId = await drive.uploadBytes(
-        bytes: photo.bytes!,
+        bytes: photo.bytes,
         filename: photo.name,
         mimeType: guessMimeType(photo.name),
         folderId: folderId,

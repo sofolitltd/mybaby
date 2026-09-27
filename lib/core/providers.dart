@@ -24,6 +24,7 @@ import '../data/models/memory.dart';
 import '../data/models/milestone.dart';
 import '../data/models/vaccination.dart';
 import '../features/auth/auth_repository.dart';
+import 'notifications/notification_service.dart';
 
 // Cross-cutting providers. These are the shared building blocks: who's
 // signed in, which babies they have, which is active — every feature-level
@@ -32,6 +33,10 @@ import '../features/auth/auth_repository.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository();
+});
+
+final notificationServiceProvider = Provider<NotificationService>((ref) {
+  return NotificationService.instance;
 });
 
 final authStateProvider = StreamProvider<fb.User?>((ref) {

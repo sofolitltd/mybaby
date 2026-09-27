@@ -24,17 +24,21 @@ class AppTypography {
   final TextStyle label;
 
   factory AppTypography.standard() {
-    TextStyle inter(double size, FontWeight weight, double height) =>
-        GoogleFonts.inter(fontSize: size, fontWeight: weight, height: height);
+    TextStyle jakarta(double size, FontWeight weight, double height) =>
+        GoogleFonts.plusJakartaSans(
+          fontSize: size,
+          fontWeight: weight,
+          height: height,
+        );
 
     return AppTypography(
-      numeralXL: inter(40, FontWeight.w800, 1.1),
-      numeralL: inter(28, FontWeight.w800, 1.15),
-      title: inter(20, FontWeight.w800, 1.25),
-      subtitle: inter(16, FontWeight.w700, 1.3),
-      body: inter(15, FontWeight.w500, 1.45),
-      caption: inter(13, FontWeight.w600, 1.4),
-      label: inter(12, FontWeight.w700, 1.3),
+      numeralXL: jakarta(28, FontWeight.w800, 1.1),
+      numeralL: jakarta(22, FontWeight.w800, 1.15),
+      title: jakarta(16, FontWeight.w800, 1.25),
+      subtitle: jakarta(14, FontWeight.w700, 1.3),
+      body: jakarta(12, FontWeight.w500, 1.45),
+      caption: jakarta(11, FontWeight.w600, 1.4),
+      label: jakarta(12, FontWeight.w700, 1.3),
     );
   }
 }
