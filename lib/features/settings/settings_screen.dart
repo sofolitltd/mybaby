@@ -20,18 +20,21 @@ import '../../core/theme/motion/app_motion.dart';
 import '../../core/theme/motion/staggered_entrance.dart';
 import '../../core/theme/motion/tap_scale.dart';
 import '../../core/theme/theme_controller.dart';
+import '../babies/widgets/baby_screen_header.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/drive_error_snackbar.dart';
 import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_section_header.dart';
 import '../../shared/widgets/app_status_pill.dart';
+import '../../shared/widgets/app_toggle.dart';
 import 'providers/drive_usage_provider.dart';
+import 'providers/feed_reminder_provider.dart';
 import 'providers/last_backup_provider.dart';
 import 'providers/reminder_prefs_provider.dart';
 import 'providers/units_provider.dart';
-
-const _appVersion = 'v1.0.0';
+import 'widgets/feed_reminder_sheet.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -46,296 +49,285 @@ class SettingsScreen extends ConsumerWidget {
     final weightUnit = ref.watch(weightUnitProvider);
     final lengthUnit = ref.watch(lengthUnitProvider);
     final reminderPrefs = ref.watch(reminderPrefsProvider);
+    final feedAlert = ref.watch(feedAlertProvider);
 
     return AppScaffold(
       body: SafeArea(
-        child: ContentColumn(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(
-              AppSpacing.xl,
-              AppSpacing.l,
-              AppSpacing.xl,
-              AppSpacing.xxl,
-            ),
-            children: [
-              Row(
-                children: [
-                  TapScale(
-                    onTap: () => context.pop(),
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
-                    child: Padding(
-                      padding: const EdgeInsets.all(AppSpacing.s),
-                      child: Icon(
-                        LucideIcons.chevron_left,
-                        color: theme.colors.textPrimary,
-                      ),
-                    ),
+        child: Column(
+          children: [
+            const BabyScreenHeader(title: 'Settings', showBackButton: false),
+            Expanded(
+              child: ContentColumn(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.xl,
+                    0,
+                    AppSpacing.xl,
+                    AppSpacing.xxl,
                   ),
-                  const SizedBox(width: AppSpacing.xs),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StaggeredListEntrance(
                       children: [
-                        Text(
-                          'Settings',
-                          style: theme.typography.title.copyWith(
-                            color: theme.colors.textPrimary,
-                          ),
+                        AppMutedSectionHeader(
+                          'Baby profiles',
+                          trailing: babies.isEmpty
+                              ? null
+                              : Text(
+                                  '${babies.length} registered',
+                                  style: theme.typography.caption.copyWith(
+                                    color: theme.colors.textSecondary,
+                                  ),
+                                ),
                         ),
-                        Text(
-                          'Preferences & account',
-                          style: theme.typography.caption.copyWith(
-                            color: theme.colors.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  AppStatusPill(
-                    label: _appVersion,
-                    color: theme.colors.status.done,
-                  ),
-                ],
-              ),
-              StaggeredListEntrance(
-                children: [
-                  AppMutedSectionHeader(
-                    'Baby profiles',
-                    trailing: babies.isEmpty
-                        ? null
-                        : Text(
-                            '${babies.length} registered',
-                            style: theme.typography.caption.copyWith(
-                              color: theme.colors.textSecondary,
-                            ),
-                          ),
-                  ),
-                  AppCard(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (activeBaby != null) ...[
-                          Row(
+                        AppCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _BabyAvatar(baby: activeBaby),
-                              const SizedBox(width: AppSpacing.m),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisSize: MainAxisSize.min,
+                              if (activeBaby != null) ...[
+                                Row(
                                   children: [
-                                    Text(
-                                      activeBaby.name,
-                                      style: theme.typography.subtitle.copyWith(
-                                        color: theme.colors.textPrimary,
+                                    _BabyAvatar(baby: activeBaby),
+                                    const SizedBox(width: AppSpacing.m),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            activeBaby.name,
+                                            style: theme.typography.subtitle
+                                                .copyWith(
+                                                  color:
+                                                      theme.colors.textPrimary,
+                                                ),
+                                          ),
+                                          const SizedBox(
+                                            height: AppSpacing.xs / 2,
+                                          ),
+                                          Text(
+                                            '${activeBaby.ageInWeeks} weeks old · Active profile',
+                                            style: theme.typography.caption
+                                                .copyWith(
+                                                  color: theme
+                                                      .colors
+                                                      .textSecondary,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
                                       ),
                                     ),
-                                    const SizedBox(height: AppSpacing.xs / 2),
-                                    Text(
-                                      '${activeBaby.ageInWeeks} weeks old · Active profile',
-                                      style: theme.typography.caption.copyWith(
-                                        color: theme.colors.textSecondary,
+                                    TapScale(
+                                      onTap: () => context.push(
+                                        '/edit-baby',
+                                        extra: activeBaby,
                                       ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadii.s,
+                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(
+                                          AppSpacing.s,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme.colors.surfaceSunken,
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadii.s,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          LucideIcons.square_pen,
+                                          size: 16,
+                                          color: theme.colors.textSecondary,
+                                        ),
+                                      ),
                                     ),
                                   ],
                                 ),
+                                const SizedBox(height: AppSpacing.m),
+                              ],
+                              _DashedAddCard(
+                                label: 'Add another baby',
+                                onTap: () => context.push('/add-baby'),
                               ),
-                              TapScale(
-                                onTap: () => context.push(
-                                  '/edit-baby',
-                                  extra: activeBaby,
-                                ),
-                                borderRadius: BorderRadius.circular(AppRadii.s),
-                                child: Container(
-                                  padding: const EdgeInsets.all(AppSpacing.s),
-                                  decoration: BoxDecoration(
-                                    color: theme.colors.surfaceSunken,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadii.s,
-                                    ),
+                            ],
+                          ),
+                        ),
+                        const AppMutedSectionHeader('Reminders & Alerts'),
+                        AppCard(
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: _SettingsToggleRow(
+                                  icon: LucideIcons.syringe,
+                                  iconTint: theme.colors.primary,
+                                  title: 'Vaccination reminders',
+                                  subtitle: 'Upcoming immunizations & shots',
+                                  value:
+                                      reminderPrefs[ReminderCategory
+                                          .vaccination] ??
+                                      false,
+                                  onChanged: (enabled) => _onReminderToggled(
+                                    context,
+                                    ref,
+                                    ReminderCategory.vaccination,
+                                    enabled,
                                   ),
-                                  child: Icon(
-                                    LucideIcons.square_pen,
-                                    size: 16,
-                                    color: theme.colors.textSecondary,
+                                ),
+                              ),
+                              Divider(height: 1, color: theme.colors.hairline),
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: _SettingsToggleRow(
+                                  icon: LucideIcons.chart_line,
+                                  iconTint: theme.colors.info,
+                                  title: 'Growth check-ins',
+                                  subtitle: 'Weekly weight & height logging',
+                                  value:
+                                      reminderPrefs[ReminderCategory
+                                          .growthCheckIn] ??
+                                      false,
+                                  onChanged: (enabled) => _onReminderToggled(
+                                    context,
+                                    ref,
+                                    ReminderCategory.growthCheckIn,
+                                    enabled,
+                                  ),
+                                ),
+                              ),
+                              Divider(height: 1, color: theme.colors.hairline),
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: _FeedAlertRow(feedAlert: feedAlert),
+                              ),
+                              Divider(height: 1, color: theme.colors.hairline),
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: TapScale(
+                                  onTap: () =>
+                                      context.push('/settings/reminders'),
+                                  child: const _SettingsRow(
+                                    icon: LucideIcons.list_checks,
+                                    iconTint: null,
+                                    title: 'View all scheduled reminders',
+                                    subtitle: 'See every alarm currently set',
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: AppSpacing.m),
-                        ],
-                        _DashedAddCard(
-                          label: 'Add another baby',
-                          onTap: () => context.push('/add-baby'),
                         ),
-                      ],
-                    ),
-                  ),
-                  const AppMutedSectionHeader('Reminders & Alerts'),
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: _SettingsToggleRow(
-                            icon: LucideIcons.syringe,
-                            iconTint: theme.colors.primary,
-                            title: 'Vaccination reminders',
-                            subtitle: 'Upcoming immunizations & shots',
-                            value:
-                                reminderPrefs[ReminderCategory.vaccination] ??
-                                false,
-                            onChanged: (enabled) => _onReminderToggled(
-                              context,
-                              ref,
-                              ReminderCategory.vaccination,
-                              enabled,
-                            ),
+                        const AppMutedSectionHeader('Units & Preferences'),
+                        AppCard(
+                          padding: EdgeInsets.zero,
+                          child: Column(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: _UnitRow(
+                                  title: 'Weight unit',
+                                  subtitle: 'Used in growth charts & records',
+                                  leftLabel: 'kg',
+                                  rightLabel: 'lb',
+                                  selectedLeft: weightUnit == WeightUnit.kg,
+                                  onSelectLeft: () => ref
+                                      .read(weightUnitProvider.notifier)
+                                      .set(WeightUnit.kg),
+                                  onSelectRight: () => ref
+                                      .read(weightUnitProvider.notifier)
+                                      .set(WeightUnit.lb),
+                                ),
+                              ),
+                              Divider(height: 1, color: theme.colors.hairline),
+                              Padding(
+                                padding: const EdgeInsets.all(AppSpacing.xl),
+                                child: _UnitRow(
+                                  title: 'Height / length unit',
+                                  subtitle:
+                                      'Measurements for growth monitoring',
+                                  leftLabel: 'cm',
+                                  rightLabel: 'in',
+                                  selectedLeft: lengthUnit == LengthUnit.cm,
+                                  onSelectLeft: () => ref
+                                      .read(lengthUnitProvider.notifier)
+                                      .set(LengthUnit.cm),
+                                  onSelectRight: () => ref
+                                      .read(lengthUnitProvider.notifier)
+                                      .set(LengthUnit.inch),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Divider(height: 1, color: theme.colors.hairline),
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: _SettingsToggleRow(
-                            icon: LucideIcons.chart_line,
-                            iconTint: theme.colors.info,
-                            title: 'Growth check-ins',
-                            subtitle: 'Weekly weight & height logging',
-                            value:
-                                reminderPrefs[ReminderCategory.growthCheckIn] ??
-                                false,
-                            onChanged: (enabled) => _onReminderToggled(
-                              context,
-                              ref,
-                              ReminderCategory.growthCheckIn,
-                              enabled,
-                            ),
+                        AppMutedSectionHeader(
+                          'Data & Cloud Backup',
+                          trailing: AppStatusPill(
+                            label: 'Synced today',
+                            color: theme.colors.status.done,
                           ),
                         ),
-                        Divider(height: 1, color: theme.colors.hairline),
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: _SettingsToggleRow(
-                            icon: LucideIcons.clock,
-                            iconTint: theme.colors.secondary,
-                            title: 'Feeding & diaper alerts',
-                            subtitle: 'Custom intervals between activities',
-                            value:
-                                reminderPrefs[ReminderCategory.careLog] ??
-                                false,
-                            onChanged: (enabled) => _onReminderToggled(
-                              context,
-                              ref,
-                              ReminderCategory.careLog,
-                              enabled,
-                            ),
+                        const AppCard(child: _DriveRow()),
+                        const AppMutedSectionHeader('Appearance'),
+                        _ThemeModePicker(
+                          mode: mode,
+                          onChanged: (m) =>
+                              ref.read(themeModeProvider.notifier).set(m),
+                        ),
+                        const AppMutedSectionHeader('Family & Export'),
+                        AppCard(
+                          onTap: () => _showComingSoon(
+                            context,
+                            'Caregiver & partner sharing',
+                          ),
+                          child: const _SettingsRow(
+                            icon: LucideIcons.users,
+                            iconTint: null,
+                            title: 'Caregiver & Partner Sharing',
+                            subtitle:
+                                'Invite parents, nanny, or family members',
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  const AppMutedSectionHeader('Units & Preferences'),
-                  AppCard(
-                    padding: EdgeInsets.zero,
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: _UnitRow(
-                            title: 'Weight unit',
-                            subtitle: 'Used in growth charts & records',
-                            leftLabel: 'kg',
-                            rightLabel: 'lb',
-                            selectedLeft: weightUnit == WeightUnit.kg,
-                            onSelectLeft: () => ref
-                                .read(weightUnitProvider.notifier)
-                                .set(WeightUnit.kg),
-                            onSelectRight: () => ref
-                                .read(weightUnitProvider.notifier)
-                                .set(WeightUnit.lb),
+                        const SizedBox(height: AppSpacing.s),
+                        AppCard(
+                          onTap: () => _showComingSoon(
+                            context,
+                            'Export pediatric health summary',
+                          ),
+                          child: const _SettingsRow(
+                            icon: LucideIcons.file_down,
+                            iconTint: null,
+                            title: 'Export Pediatric Health Summary',
+                            subtitle:
+                                'Generate PDF report for pediatrician visit',
                           ),
                         ),
-                        Divider(height: 1, color: theme.colors.hairline),
-                        Padding(
-                          padding: const EdgeInsets.all(AppSpacing.xl),
-                          child: _UnitRow(
-                            title: 'Height / length unit',
-                            subtitle: 'Measurements for growth monitoring',
-                            leftLabel: 'cm',
-                            rightLabel: 'in',
-                            selectedLeft: lengthUnit == LengthUnit.cm,
-                            onSelectLeft: () => ref
-                                .read(lengthUnitProvider.notifier)
-                                .set(LengthUnit.cm),
-                            onSelectRight: () => ref
-                                .read(lengthUnitProvider.notifier)
-                                .set(LengthUnit.inch),
+                        const AppMutedSectionHeader('Account'),
+                        AppCard(
+                          onTap: () async {
+                            final confirmed = await _confirmSignOut(context);
+                            if (confirmed == true) {
+                              ref.read(authRepositoryProvider).signOut();
+                            }
+                          },
+                          child: _SettingsRow(
+                            icon: LucideIcons.log_out,
+                            title: 'Sign out',
+                            subtitle: email == null
+                                ? null
+                                : 'Signed in as $email',
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  AppMutedSectionHeader(
-                    'Data & Cloud Backup',
-                    trailing: AppStatusPill(
-                      label: 'Synced today',
-                      color: theme.colors.status.done,
-                    ),
-                  ),
-                  const AppCard(child: _DriveRow()),
-                  const AppMutedSectionHeader('Appearance'),
-                  _ThemeModePicker(
-                    mode: mode,
-                    onChanged: (m) =>
-                        ref.read(themeModeProvider.notifier).set(m),
-                  ),
-                  const AppMutedSectionHeader('Family & Export'),
-                  AppCard(
-                    onTap: () =>
-                        _showComingSoon(context, 'Caregiver & partner sharing'),
-                    child: const _SettingsRow(
-                      icon: LucideIcons.users,
-                      iconTint: null,
-                      title: 'Caregiver & Partner Sharing',
-                      subtitle: 'Invite parents, nanny, or family members',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.s),
-                  AppCard(
-                    onTap: () => _showComingSoon(
-                      context,
-                      'Export pediatric health summary',
-                    ),
-                    child: const _SettingsRow(
-                      icon: LucideIcons.file_down,
-                      iconTint: null,
-                      title: 'Export Pediatric Health Summary',
-                      subtitle: 'Generate PDF report for pediatrician visit',
-                    ),
-                  ),
-                  const AppMutedSectionHeader('Account'),
-                  AppCard(
-                    onTap: () async {
-                      final confirmed = await _confirmSignOut(context);
-                      if (confirmed == true) {
-                        ref.read(authRepositoryProvider).signOut();
-                      }
-                    },
-                    child: _SettingsRow(
-                      icon: LucideIcons.log_out,
-                      title: 'Sign out',
-                      subtitle: email == null ? null : 'Signed in as $email',
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -642,6 +634,71 @@ class _IconBadge extends StatelessWidget {
   }
 }
 
+/// "Feed alert" row — a simple global "every N hours" repeating reminder
+/// ([feedAlertProvider]), independent of the diaper alert's one-off
+/// pick-a-time reminder above. Tapping the row (or turning it on) opens the
+/// interval picker sheet; the toggle turns it off directly.
+String _formatFeedInterval(Duration interval) {
+  final hours = interval.inHours;
+  final minutes = interval.inMinutes % 60;
+  if (minutes == 0) return '$hours hr${hours == 1 ? '' : 's'}';
+  if (hours == 0) return '$minutes min';
+  return '${hours}h ${minutes}m';
+}
+
+class _FeedAlertRow extends ConsumerWidget {
+  const _FeedAlertRow({required this.feedAlert});
+
+  final FeedAlertState feedAlert;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
+    final subtitle = feedAlert.isSet
+        ? 'Every ${_formatFeedInterval(feedAlert.interval!)}'
+              '${feedAlert.leadMinutes > 0 ? ' · notify ${feedAlert.leadMinutes}m before' : ''}'
+        : 'Repeating reminder between feeds';
+
+    return TapScale(
+      onTap: () => showFeedAlertSheet(context, ref),
+      child: Row(
+        children: [
+          _IconBadge(icon: LucideIcons.milk, tint: theme.colors.primary),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Feed alert',
+                  style: theme.typography.subtitle.copyWith(
+                    color: theme.colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.xs / 2),
+                Text(
+                  subtitle,
+                  style: theme.typography.caption.copyWith(
+                    color: theme.colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: AppSpacing.m),
+          AppToggle(
+            value: feedAlert.isSet,
+            onChanged: (enabled) => enabled
+                ? showFeedAlertSheet(context, ref)
+                : ref.read(feedAlertProvider.notifier).cancel(),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SettingsToggleRow extends StatelessWidget {
   const _SettingsToggleRow({
     required this.icon,
@@ -690,46 +747,8 @@ class _SettingsToggleRow extends StatelessWidget {
           ),
         ),
         const SizedBox(width: AppSpacing.m),
-        _Toggle(value: value, onChanged: onChanged),
+        AppToggle(value: value, onChanged: onChanged),
       ],
-    );
-  }
-}
-
-/// Custom on/off pill — replaces Material `Switch`. `primary` (eucalyptus)
-/// track when on, `surfaceSunken` when off. See docs/DESIGN_SYSTEM.md#8-components.
-class _Toggle extends StatelessWidget {
-  const _Toggle({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppTheme.of(context).colors;
-    return TapScale(
-      onTap: () => onChanged(!value),
-      borderRadius: BorderRadius.circular(AppRadii.pill),
-      child: AnimatedContainer(
-        duration: AppMotion.durationFast,
-        curve: AppMotion.curveStandard,
-        width: 44,
-        height: 26,
-        padding: const EdgeInsets.all(3),
-        alignment: value ? Alignment.centerRight : Alignment.centerLeft,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppRadii.pill),
-          color: value ? colors.primary : colors.surfaceSunken,
-        ),
-        child: Container(
-          width: 20,
-          height: 20,
-          decoration: BoxDecoration(
-            color: colors.surface,
-            shape: BoxShape.circle,
-          ),
-        ),
-      ),
     );
   }
 }
@@ -935,9 +954,7 @@ class _DriveRow extends ConsumerWidget {
                   }
                 } catch (e) {
                   if (context.mounted) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Drive error: $e')));
+                    showDriveErrorSnackBar(context, ref, e);
                   }
                 }
               },

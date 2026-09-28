@@ -8,8 +8,8 @@ import '../../core/providers.dart';
 import '../../data/firestore/babies_repository.dart';
 import '../../data/models/baby.dart';
 import '../../shared/widgets/app_scaffold.dart';
-import 'baby_form.dart';
 import 'widgets/baby_screen_header.dart';
+import 'widgets/edit_baby_form.dart';
 
 class EditBabyScreen extends ConsumerStatefulWidget {
   const EditBabyScreen({super.key, required this.baby});
@@ -23,19 +23,19 @@ class EditBabyScreen extends ConsumerStatefulWidget {
 class _EditBabyScreenState extends ConsumerState<EditBabyScreen> {
   bool _saving = false;
 
-  Future<void> _save({
-    required String name,
-    required DateTime dob,
-    String? sex,
-    PickedFile? photo,
-  }) async {
+  Future<void> _save(EditBabyFormResult result) async {
     final repo = ref.read(babiesRepositoryProvider);
     if (repo == null) return;
     setState(() => _saving = true);
     try {
-      await repo.updateBaby(id: widget.baby.id, name: name, dob: dob, sex: sex);
-      if (photo != null) {
-        await _uploadAvatar(repo, widget.baby.id, photo);
+      await repo.updateBaby(
+        id: widget.baby.id,
+        name: result.name,
+        dob: result.dob,
+        sex: result.sex,
+      );
+      if (result.photo != null) {
+        await _uploadAvatar(repo, widget.baby.id, result.photo!);
       }
       if (mounted) Navigator.of(context).pop();
     } catch (e) {
@@ -76,13 +76,13 @@ class _EditBabyScreenState extends ConsumerState<EditBabyScreen> {
         children: [
           BabyScreenHeader(title: 'Edit ${widget.baby.name}'),
           Expanded(
-            child: BabyForm(
+            child: EditBabyForm(
               onSubmit: _save,
               submitting: _saving,
-              submitLabel: 'Save changes',
               initialName: widget.baby.name,
               initialDob: widget.baby.dob,
               initialSex: widget.baby.sex,
+              initialAvatarDriveFileId: widget.baby.avatarDriveFileId,
             ),
           ),
         ],

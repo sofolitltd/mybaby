@@ -9,13 +9,22 @@ import '../../../core/theme/motion/tap_scale.dart';
 /// settings), since `AppAppBar` isn't built yet — see
 /// docs/DESIGN_SYSTEM.md#8-components.
 class BabyScreenHeader extends StatelessWidget {
-  const BabyScreenHeader({super.key, required this.title, this.trailing});
+  const BabyScreenHeader({
+    super.key,
+    required this.title,
+    this.trailing,
+    this.showBackButton = true,
+  });
 
   final String title;
 
   /// Optional action pinned to the far right — e.g. a delete button on an
   /// edit screen. Null on every other screen that uses this header.
   final Widget? trailing;
+
+  /// False for top-level tab screens (e.g. Tasks) reached via the bottom
+  /// nav rather than pushed on top of another screen.
+  final bool showBackButton;
 
   @override
   Widget build(BuildContext context) {
@@ -29,18 +38,20 @@ class BabyScreenHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          TapScale(
-            onTap: () => context.pop(),
-            borderRadius: BorderRadius.circular(AppRadii.pill),
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.s),
-              child: Icon(
-                LucideIcons.chevron_left,
-                color: theme.colors.textPrimary,
+          if (showBackButton) ...[
+            TapScale(
+              onTap: () => context.pop(),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.s),
+                child: Icon(
+                  LucideIcons.chevron_left,
+                  color: theme.colors.textPrimary,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: AppSpacing.xs),
+            const SizedBox(width: AppSpacing.xs),
+          ],
           Expanded(
             child: Text(
               title,
@@ -49,7 +60,10 @@ class BabyScreenHeader extends StatelessWidget {
               ),
             ),
           ),
-          ?trailing,
+          if (trailing != null) ...[
+            const SizedBox(width: AppSpacing.xs),
+            trailing!,
+          ],
         ],
       ),
     );

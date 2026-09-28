@@ -1,6 +1,3 @@
-import 'dart:typed_data';
-
-import 'package:file_picker/file_picker.dart' show FileType;
 import 'package:flutter/material.dart'
     show
         CircularProgressIndicator,
@@ -10,8 +7,7 @@ import 'package:flutter/material.dart'
         ScaffoldMessenger,
         SnackBar,
         TextField,
-        showDatePicker,
-        showDialog;
+        showDatePicker;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_lucide/flutter_lucide.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -23,12 +19,14 @@ import '../../core/mime_utils.dart';
 import '../../core/picked_file.dart';
 import '../../core/providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/motion/app_motion.dart';
 import '../../core/theme/motion/sheet_transition.dart';
 import '../../core/theme/motion/staggered_entrance.dart';
 import '../../core/theme/motion/tap_scale.dart';
-import '../../data/drive/drive_image_cache.dart';
+import '../../data/drive/drive_repository.dart';
 import '../../data/models/doctor_visit.dart';
 import '../../data/models/document_item.dart';
+import '../../data/models/medication.dart';
 import '../../data/models/vaccination.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
@@ -39,12 +37,20 @@ import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/app_section_header.dart';
 import '../../shared/widgets/app_status_pill.dart';
 import '../../shared/widgets/drive_image.dart';
-import 'widgets/record_delete_confirm.dart';
-import 'widgets/upload_progress_dialog.dart';
-import 'widgets/vaccine_card_editor_screen.dart';
+import '../../shared/widgets/confirm_delete_dialog.dart';
+import '../../shared/widgets/drive_error_snackbar.dart';
 
-class HealthScreen extends ConsumerWidget {
+enum _HealthTab { vaccinations, visits, medications, documents }
+
+class HealthScreen extends ConsumerStatefulWidget {
   const HealthScreen({super.key});
+
+  @override
+  ConsumerState<HealthScreen> createState() => _HealthScreenState();
+}
+
+class _HealthScreenState extends ConsumerState<HealthScreen> {
+  _HealthTab _tab = _HealthTab.vaccinations;
 
   Future<void> _addVaccination(BuildContext context, WidgetRef ref) async {
     final repo = ref.read(vaccinationsRepositoryProvider);
@@ -93,62 +99,12 @@ class HealthScreen extends ConsumerWidget {
       );
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-      }
-    }
-  }
-
-  Future<void> _addVaccineCard(
-    BuildContext context,
-    WidgetRef ref,
-    String vaccinationId,
-  ) async {
-    final repo = ref.read(vaccinationsRepositoryProvider);
-    if (repo == null) return;
-
-    final file = await pickSingleFile(type: FileType.image);
-    if (file == null) return;
-    if (!context.mounted) return;
-
-    final cropped = await Navigator.of(context).push<Uint8List>(
-      _NoTransitionRoute(
-        builder: (_) => VaccineCardEditorScreen(sourceBytes: file.bytes),
-      ),
-    );
-    if (cropped == null) return;
-    if (!context.mounted) return;
-
-    final confirmed = await _confirmVaccineCardPhoto(context, cropped);
-    if (confirmed != true) return;
-    if (!context.mounted) return;
-
-    const mimeType = 'image/jpeg';
-    final filename = 'vaccine-card-$vaccinationId.jpg';
-
-    try {
-      final driveFileId = await showUploadProgressDialog<String>(
-        context,
-        title: 'Uploading vaccine card',
-        upload: (onProgress) async {
-          final drive = ref.read(driveRepositoryProvider);
-          final folderId = await drive.ensureAppFolder();
-          return drive.uploadBytes(
-            bytes: cropped,
-            filename: filename,
-            mimeType: mimeType,
-            folderId: folderId,
-            onProgress: onProgress,
-          );
-        },
-      );
-      await DriveImageCache.instance.write(driveFileId, cropped);
-      await repo.setCard(vaccinationId, driveFileId, mimeType);
-      ref.invalidate(driveImageBytesProvider(driveFileId));
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        if (e is DriveAuthException) {
+          showDriveErrorSnackBar(context, ref, e);
+        } else {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+        }
       }
     }
   }
@@ -166,7 +122,7 @@ class HealthScreen extends ConsumerWidget {
     WidgetRef ref,
     String id,
   ) async {
-    final confirmed = await showRecordDeleteConfirm(context);
+    final confirmed = await showConfirmDeleteDialog(context);
     if (confirmed == true) {
       await ref.read(vaccinationsRepositoryProvider)?.delete(id);
     }
@@ -181,9 +137,31 @@ class HealthScreen extends ConsumerWidget {
     WidgetRef ref,
     String id,
   ) async {
-    final confirmed = await showRecordDeleteConfirm(context);
+    final confirmed = await showConfirmDeleteDialog(context);
     if (confirmed == true) {
       await ref.read(doctorVisitsRepositoryProvider)?.delete(id);
+    }
+  }
+
+  void _editMedication(BuildContext context, Medication medication) {
+    context.push('/add-health-record', extra: medication);
+  }
+
+  Future<void> _deleteMedication(
+    BuildContext context,
+    WidgetRef ref,
+    Medication medication,
+  ) async {
+    final confirmed = await showConfirmDeleteDialog(context);
+    if (confirmed == true) {
+      await ref
+          .read(notificationServiceProvider)
+          .cancelMedicationCourse(
+            medicationId: medication.id,
+            durationDays: medication.durationDays,
+            reminderTimesCount: medication.reminderTimes.length,
+          );
+      await ref.read(medicationsRepositoryProvider)?.delete(medication.id);
     }
   }
 
@@ -208,7 +186,7 @@ class HealthScreen extends ConsumerWidget {
     WidgetRef ref,
     String id,
   ) async {
-    final confirmed = await showRecordDeleteConfirm(
+    final confirmed = await showConfirmDeleteDialog(
       context,
       message:
           'This removes the record here — the file stays in your Google Drive.',
@@ -218,155 +196,326 @@ class HealthScreen extends ConsumerWidget {
     }
   }
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget _vaccinationsTab(BuildContext context, WidgetRef ref) {
     final theme = AppTheme.of(context);
     final vaccinationsAsync = ref.watch(vaccinationsProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.xxl + 64,
+      ),
+      children: [
+        _HealthStatusCard(vaccinations: vaccinationsAsync.value ?? const []),
+        const SizedBox(height: AppSpacing.l),
+        AppMutedSectionHeader(
+          'Vaccinations',
+          badge: _SectionBadge(
+            '${vaccinationsAsync.value?.length ?? 0} Records',
+          ),
+          trailing: _AddAction(
+            label: 'Add',
+            onTap: () => _addVaccination(context, ref),
+          ),
+        ),
+        vaccinationsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(
+            'Could not load vaccinations: $e',
+            style: theme.typography.body.copyWith(
+              color: theme.colors.textSecondary,
+            ),
+          ),
+          data: (list) => list.isEmpty
+              ? const AppEmptyState(
+                  icon: LucideIcons.syringe,
+                  message: 'No vaccination schedule yet.',
+                )
+              : StaggeredListEntrance(
+                  children: [
+                    for (final v in list)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.m),
+                        child: _VaccinationTile(
+                          vaccination: v,
+                          onMarkDone: () => ref
+                              .read(vaccinationsRepositoryProvider)
+                              ?.markAdministered(v.id),
+                          onEdit: () => _editVaccination(context, v),
+                          onDelete: () =>
+                              _deleteVaccination(context, ref, v.id),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _visitsTab(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
     final visitsAsync = ref.watch(doctorVisitsProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.xxl + 64,
+      ),
+      children: [
+        AppMutedSectionHeader(
+          'Doctor visits',
+          badge: const _SectionBadge('Upcoming & Past'),
+          trailing: _AddAction(
+            label: 'Add',
+            onTap: () => _addDoctorVisit(context, ref),
+          ),
+        ),
+        visitsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(
+            'Could not load visits: $e',
+            style: theme.typography.body.copyWith(
+              color: theme.colors.textSecondary,
+            ),
+          ),
+          data: (visits) => visits.isEmpty
+              ? const AppEmptyState(
+                  icon: LucideIcons.stethoscope,
+                  message: 'No doctor visits logged yet.',
+                )
+              : StaggeredListEntrance(
+                  children: [
+                    for (final v in visits)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: AppSpacing.m),
+                        child: _DoctorVisitTile(
+                          visit: v,
+                          onEdit: () => _editDoctorVisit(context, v),
+                          onDelete: () =>
+                              _deleteDoctorVisit(context, ref, v.id),
+                        ),
+                      ),
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _medicationsTab(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
+    final medicationsAsync = ref.watch(medicationsProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.xxl + 64,
+      ),
+      children: [
+        AppMutedSectionHeader(
+          'Medications',
+          badge: _SectionBadge(
+            '${medicationsAsync.value?.where((m) => m.isActive).length ?? 0} Running',
+          ),
+          trailing: _AddAction(
+            label: 'Add',
+            onTap: () => _addHealthRecord(context),
+          ),
+        ),
+        medicationsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(
+            'Could not load medications: $e',
+            style: theme.typography.body.copyWith(
+              color: theme.colors.textSecondary,
+            ),
+          ),
+          data: (medications) {
+            if (medications.isEmpty) {
+              return const AppEmptyState(
+                icon: LucideIcons.pill,
+                message: 'No medications logged yet.',
+              );
+            }
+            final running = medications.where((m) => m.isActive).toList();
+            final history = medications.where((m) => !m.isActive).toList();
+            final historyByDay = <DateTime, List<Medication>>{};
+            for (final m in history) {
+              final day = DateTime(
+                m.startDate.year,
+                m.startDate.month,
+                m.startDate.day,
+              );
+              historyByDay.putIfAbsent(day, () => []).add(m);
+            }
+            final historyDays = historyByDay.keys.toList()
+              ..sort((a, b) => b.compareTo(a));
+
+            Widget tile(Medication m) => Padding(
+              padding: const EdgeInsets.only(bottom: AppSpacing.m),
+              child: _MedicationTile(
+                medication: m,
+                onEdit: () => _editMedication(context, m),
+                onDelete: () => _deleteMedication(context, ref, m),
+              ),
+            );
+
+            return StaggeredListEntrance(
+              children: [
+                if (running.isNotEmpty) ...[
+                  Text(
+                    'RUNNING',
+                    style: theme.typography.label.copyWith(
+                      color: theme.colors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s),
+                  for (final m in running) tile(m),
+                ],
+                if (historyDays.isNotEmpty) ...[
+                  Text(
+                    'HISTORY',
+                    style: theme.typography.label.copyWith(
+                      color: theme.colors.textTertiary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.s),
+                  for (final day in historyDays) ...[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: AppSpacing.s),
+                      child: Text(
+                        DateFormat.yMMMd().format(day),
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.textTertiary,
+                        ),
+                      ),
+                    ),
+                    for (final m in historyByDay[day]!) tile(m),
+                  ],
+                ],
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _documentsTab(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
     final documentsAsync = ref.watch(documentsProvider);
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        AppSpacing.xl,
+        AppSpacing.l,
+        AppSpacing.xl,
+        AppSpacing.xxl + 64,
+      ),
+      children: [
+        AppMutedSectionHeader(
+          'Documents',
+          badge: _SectionBadge('${documentsAsync.value?.length ?? 0} Files'),
+          trailing: _AddAction(
+            label: 'Add',
+            onTap: () => _addDocument(context, ref),
+          ),
+        ),
+        documentsAsync.when(
+          loading: () => const Padding(
+            padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (e, _) => Text(
+            'Could not load documents: $e',
+            style: theme.typography.body.copyWith(
+              color: theme.colors.textSecondary,
+            ),
+          ),
+          data: (documents) {
+            if (documents.isEmpty) {
+              return const AppEmptyState(
+                icon: LucideIcons.file_text,
+                message: 'No documents yet.',
+              );
+            }
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: documents.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                mainAxisSpacing: AppSpacing.m,
+                crossAxisSpacing: AppSpacing.m,
+                mainAxisExtent: 236,
+              ),
+              itemBuilder: (context, i) => _DocumentTile(
+                document: documents[i],
+                onEdit: () => _editDocument(context, ref, documents[i]),
+                onDelete: () => _deleteDocument(context, ref, documents[i].id),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final (fabLabel, fabOnTap) = switch (_tab) {
+      _HealthTab.vaccinations => (
+        'Add Vaccination',
+        () => _addVaccination(context, ref),
+      ),
+      _HealthTab.visits => (
+        'Add Visit',
+        () => _addDoctorVisit(context, ref),
+      ),
+      _HealthTab.medications => (
+        'Add Medication',
+        () => _addHealthRecord(context),
+      ),
+      _HealthTab.documents => (
+        'Add Document',
+        () => _addDocument(context, ref),
+      ),
+    };
 
     return Stack(
       children: [
-        ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.l,
-            AppSpacing.xl,
-            AppSpacing.xxl + 64,
-          ),
+        Column(
           children: [
-            _HealthStatusCard(
-              vaccinations: vaccinationsAsync.value ?? const [],
-            ),
-            const SizedBox(height: AppSpacing.l),
-            AppMutedSectionHeader(
-              'Vaccinations',
-              badge: _SectionBadge(
-                '${vaccinationsAsync.value?.length ?? 0} Records',
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.l,
+                AppSpacing.xl,
+                0,
               ),
-              trailing: _AddAction(
-                label: 'Add',
-                onTap: () => _addVaccination(context, ref),
+              child: _HealthTabBar(
+                tab: _tab,
+                onChanged: (tab) => setState(() => _tab = tab),
               ),
             ),
-            vaccinationsAsync.when(
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: AppSpacing.m),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-              error: (e, _) => Text(
-                'Could not load vaccinations: $e',
-                style: theme.typography.body.copyWith(
-                  color: theme.colors.textSecondary,
-                ),
-              ),
-              data: (list) => list.isEmpty
-                  ? const AppEmptyState(
-                      icon: LucideIcons.syringe,
-                      message: 'No vaccination schedule yet.',
-                    )
-                  : StaggeredListEntrance(
-                      children: [
-                        for (final v in list)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.m,
-                            ),
-                            child: _VaccinationTile(
-                              vaccination: v,
-                              onAddCard: () =>
-                                  _addVaccineCard(context, ref, v.id),
-                              onMarkDone: () => ref
-                                  .read(vaccinationsRepositoryProvider)
-                                  ?.markAdministered(v.id),
-                              onEdit: () => _editVaccination(context, v),
-                              onDelete: () =>
-                                  _deleteVaccination(context, ref, v.id),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-            AppMutedSectionHeader(
-              'Doctor visits',
-              badge: const _SectionBadge('Upcoming & Past'),
-              trailing: _AddAction(
-                label: 'Add',
-                onTap: () => _addDoctorVisit(context, ref),
-              ),
-            ),
-            visitsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (e, _) => Text(
-                'Could not load visits: $e',
-                style: theme.typography.body.copyWith(
-                  color: theme.colors.textSecondary,
-                ),
-              ),
-              data: (visits) => visits.isEmpty
-                  ? const AppEmptyState(
-                      icon: LucideIcons.stethoscope,
-                      message: 'No doctor visits logged yet.',
-                    )
-                  : StaggeredListEntrance(
-                      children: [
-                        for (final v in visits)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              bottom: AppSpacing.m,
-                            ),
-                            child: _DoctorVisitTile(
-                              visit: v,
-                              onEdit: () => _editDoctorVisit(context, v),
-                              onDelete: () =>
-                                  _deleteDoctorVisit(context, ref, v.id),
-                            ),
-                          ),
-                      ],
-                    ),
-            ),
-            AppMutedSectionHeader(
-              'Documents',
-              badge: _SectionBadge(
-                '${documentsAsync.value?.length ?? 0} Files',
-              ),
-              trailing: _AddAction(
-                label: 'Add',
-                onTap: () => _addDocument(context, ref),
-              ),
-            ),
-            documentsAsync.when(
-              loading: () => const SizedBox.shrink(),
-              error: (e, _) => Text(
-                'Could not load documents: $e',
-                style: theme.typography.body.copyWith(
-                  color: theme.colors.textSecondary,
-                ),
-              ),
-              data: (documents) {
-                if (documents.isEmpty) {
-                  return const AppEmptyState(
-                    icon: LucideIcons.file_text,
-                    message: 'No documents yet.',
-                  );
-                }
-                return GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: documents.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: AppSpacing.m,
-                    crossAxisSpacing: AppSpacing.m,
-                    mainAxisExtent: 236,
-                  ),
-                  itemBuilder: (context, i) => _DocumentTile(
-                    document: documents[i],
-                    onEdit: () => _editDocument(context, ref, documents[i]),
-                    onDelete: () =>
-                        _deleteDocument(context, ref, documents[i].id),
-                  ),
-                );
+            Expanded(
+              child: switch (_tab) {
+                _HealthTab.vaccinations => _vaccinationsTab(context, ref),
+                _HealthTab.visits => _visitsTab(context, ref),
+                _HealthTab.medications => _medicationsTab(context, ref),
+                _HealthTab.documents => _documentsTab(context, ref),
               },
             ),
           ],
@@ -376,11 +525,88 @@ class HealthScreen extends ConsumerWidget {
           bottom: AppSpacing.l,
           child: AppExtendedFab(
             icon: LucideIcons.plus,
-            label: 'Add Health Record',
-            onTap: () => _addHealthRecord(context),
+            label: fabLabel,
+            onTap: fabOnTap,
           ),
         ),
       ],
+    );
+  }
+}
+
+class _HealthTabBar extends StatelessWidget {
+  const _HealthTabBar({required this.tab, required this.onChanged});
+
+  final _HealthTab tab;
+  final ValueChanged<_HealthTab> onChanged;
+
+  static const _segments = [
+    (value: _HealthTab.vaccinations, label: 'Vaccines'),
+    (value: _HealthTab.visits, label: 'Visits'),
+    (value: _HealthTab.medications, label: 'Meds'),
+    (value: _HealthTab.documents, label: 'Docs'),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppTheme.of(context).colors;
+    return AppGlassSurface(
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+      padding: const EdgeInsets.all(AppSpacing.xs),
+      shadows: null,
+      border: false,
+      fill: colors.surfaceSunken,
+      child: Row(
+        children: [
+          for (final segment in _segments)
+            Expanded(
+              child: _HealthTabSegment(
+                label: segment.label,
+                selected: tab == segment.value,
+                onTap: () => onChanged(segment.value),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HealthTabSegment extends StatelessWidget {
+  const _HealthTabSegment({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final colors = theme.colors;
+    return TapScale(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+      child: AnimatedContainer(
+        duration: AppMotion.durationFast,
+        curve: AppMotion.curveStandard,
+        padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: selected ? colors.surface : null,
+          borderRadius: BorderRadius.circular(AppRadii.pill),
+          boxShadow: selected ? AppShadows.card : null,
+        ),
+        child: Text(
+          label,
+          style: theme.typography.label.copyWith(
+            color: selected ? colors.textPrimary : colors.textSecondary,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -447,86 +673,6 @@ class _HealthStatusCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// No Material page-route transition here — plain fade, kept out of
-/// [AppMotion] since this is a one-off full-screen photo tool push rather
-/// than a routed screen transition (see `core/routing/app_router.dart` for
-/// the app's real `AppPageTransition`).
-class _NoTransitionRoute<T> extends PageRouteBuilder<T> {
-  _NoTransitionRoute({required WidgetBuilder builder})
-    : super(
-        pageBuilder: (context, _, _) => builder(context),
-        transitionsBuilder: (context, animation, _, child) =>
-            FadeTransition(opacity: animation, child: child),
-      );
-}
-
-Future<bool?> _confirmVaccineCardPhoto(
-  BuildContext context,
-  Uint8List cropped,
-) {
-  return showDialog<bool>(
-    context: context,
-    builder: (context) {
-      final theme = AppTheme.of(context);
-      return Center(
-        child: AppGlassSurface(
-          borderRadius: BorderRadius.circular(AppRadii.m),
-          padding: const EdgeInsets.all(AppSpacing.xl),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Use this photo?',
-                  style: theme.typography.subtitle.copyWith(
-                    color: theme.colors.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.m),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(AppRadii.s),
-                  child: Image.memory(cropped, fit: BoxFit.contain),
-                ),
-                const SizedBox(height: AppSpacing.l),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AppButton(
-                        variant: AppButtonVariant.secondary,
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: Text(
-                          'Retake',
-                          style: theme.typography.label.copyWith(
-                            color: theme.colors.textPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: AppSpacing.m),
-                    Expanded(
-                      child: AppButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: Text(
-                          'Upload',
-                          style: theme.typography.label.copyWith(
-                            color: theme.colors.onPrimary,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    },
-  );
 }
 
 /// Opens a small "Edit"/"Delete" action sheet for a record tile, returning
@@ -686,22 +832,29 @@ class _SectionBadge extends StatelessWidget {
 }
 
 class _RecordAvatar extends StatelessWidget {
-  const _RecordAvatar({required this.icon, required this.color});
+  const _RecordAvatar({
+    required this.icon,
+    required this.color,
+    this.size = 40,
+    this.iconSize = 20,
+  });
 
   final IconData icon;
   final Color color;
+  final double size;
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: size,
+      height: size,
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.14),
         shape: BoxShape.circle,
       ),
-      child: Icon(icon, size: 20, color: color),
+      child: Icon(icon, size: iconSize, color: color),
     );
   }
 }
@@ -710,14 +863,12 @@ class _VaccinationTile extends StatelessWidget {
   const _VaccinationTile({
     required this.vaccination,
     required this.onMarkDone,
-    required this.onAddCard,
     required this.onEdit,
     required this.onDelete,
   });
 
   final Vaccination vaccination;
   final VoidCallback onMarkDone;
-  final VoidCallback onAddCard;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -762,56 +913,50 @@ class _VaccinationTile extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _RecordAvatar(icon: icon, color: color),
-              const SizedBox(width: AppSpacing.m),
+              _RecordAvatar(icon: icon, color: color, size: 32, iconSize: 16),
+              const SizedBox(width: AppSpacing.s),
               Expanded(
-                child: Text(
-                  '${vaccination.name} (Dose ${vaccination.dose})',
-                  style: theme.typography.subtitle.copyWith(
-                    color: colors.textPrimary,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${vaccination.name} (Dose ${vaccination.dose})',
+                      style: theme.typography.subtitle.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: AppSpacing.xs / 2),
+                    Row(
+                      children: [
+                        Icon(
+                          LucideIcons.calendar,
+                          size: 12,
+                          color: colors.textTertiary,
+                        ),
+                        const SizedBox(width: AppSpacing.xs),
+                        Text(
+                          DateFormat.yMMMd().format(vaccination.scheduledDate),
+                          style: theme.typography.caption.copyWith(
+                            color: colors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: AppSpacing.s),
+              const SizedBox(width: AppSpacing.xs),
               AppStatusPill(label: label, color: color),
               _MoreButton(onTap: () => _showActions(context)),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.m),
-          Row(
-            children: [
-              Icon(LucideIcons.calendar, size: 14, color: colors.textTertiary),
-              const SizedBox(width: AppSpacing.xs),
-              Text(
-                DateFormat.yMMMd().format(vaccination.scheduledDate),
-                style: theme.typography.caption.copyWith(
-                  color: colors.textSecondary,
-                ),
-              ),
-              const Spacer(),
-              TapScale(
-                onTap: onAddCard,
-                borderRadius: BorderRadius.circular(AppRadii.s),
-                child: Container(
-                  padding: const EdgeInsets.all(AppSpacing.xs),
-                  decoration: BoxDecoration(
-                    color: colors.surfaceSunken,
-                    borderRadius: BorderRadius.circular(AppRadii.s),
-                  ),
-                  child: Icon(
-                    cardFileId == null ? LucideIcons.camera : LucideIcons.image,
-                    size: 16,
-                    color: colors.textSecondary,
-                  ),
-                ),
-              ),
             ],
           ),
           if (cardFileId != null) ...[
             const SizedBox(height: AppSpacing.s),
             Row(
               children: [
-                Icon(LucideIcons.badge_check, size: 14, color: status.done),
+                Icon(LucideIcons.badge_check, size: 12, color: status.done),
                 const SizedBox(width: AppSpacing.xs),
                 Text(
                   'Document attached',
@@ -819,8 +964,8 @@ class _VaccinationTile extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.m),
-            DriveImage(fileId: cardFileId, height: 140),
+            const SizedBox(height: AppSpacing.s),
+            DriveImage(fileId: cardFileId, height: 100),
           ],
         ],
       ),
@@ -930,6 +1075,122 @@ class _DoctorVisitTile extends StatelessWidget {
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MedicationTile extends StatelessWidget {
+  const _MedicationTile({
+    required this.medication,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final Medication medication;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+
+  Future<void> _showActions(BuildContext context) async {
+    final action = await _showRecordActions(context);
+    switch (action) {
+      case _RecordAction.edit:
+        onEdit();
+      case _RecordAction.delete:
+        onDelete();
+      case null:
+        break;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final colors = theme.colors;
+    final active = medication.isActive;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final start = DateTime(
+      medication.startDate.year,
+      medication.startDate.month,
+      medication.startDate.day,
+    );
+    final dayNumber = today.difference(start).inDays + 1;
+    final statusLabel = active
+        ? 'Day $dayNumber of ${medication.durationDays}'
+        : 'Completed';
+    final statusColor = active ? colors.status.done : colors.textTertiary;
+    final lastDay = medication.endDate.subtract(const Duration(days: 1));
+
+    return AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _RecordAvatar(icon: LucideIcons.pill, color: colors.secondary),
+              const SizedBox(width: AppSpacing.m),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      medication.name,
+                      style: theme.typography.subtitle.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.xs / 2),
+                    Text(
+                      medication.dosage,
+                      style: theme.typography.caption.copyWith(
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppSpacing.s),
+              AppStatusPill(label: statusLabel, color: statusColor),
+              _MoreButton(onTap: () => _showActions(context)),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.m),
+          Row(
+            children: [
+              Icon(LucideIcons.calendar, size: 14, color: colors.textTertiary),
+              const SizedBox(width: AppSpacing.xs),
+              Text(
+                '${DateFormat.MMMd().format(medication.startDate)} – ${DateFormat.MMMd().format(lastDay)}',
+                style: theme.typography.caption.copyWith(
+                  color: colors.textSecondary,
+                ),
+              ),
+              if (medication.reminderTimes.isNotEmpty) ...[
+                const SizedBox(width: AppSpacing.m),
+                Icon(LucideIcons.bell, size: 14, color: colors.textTertiary),
+                const SizedBox(width: AppSpacing.xs),
+                Text(
+                  '${medication.reminderTimes.length}'
+                  '/day',
+                  style: theme.typography.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          if (medication.notes?.trim().isNotEmpty == true) ...[
+            const SizedBox(height: AppSpacing.s),
+            Text(
+              medication.notes!.trim(),
+              style: theme.typography.caption.copyWith(
+                color: colors.textSecondary,
               ),
             ),
           ],

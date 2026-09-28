@@ -20,11 +20,13 @@ import '../../core/theme/motion/tap_scale.dart';
 import '../../data/models/baby.dart';
 import '../../data/models/growth_entry.dart';
 import '../../data/who_growth/who_percentile.dart';
+import '../babies/widgets/baby_screen_header.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_empty_state.dart';
 import '../../shared/widgets/app_extended_fab.dart';
 import '../../shared/widgets/app_glass_surface.dart';
+import '../../shared/widgets/app_scaffold.dart';
 import '../../shared/widgets/app_section_header.dart';
 import '../../shared/widgets/app_status_pill.dart';
 
@@ -70,48 +72,62 @@ class _GrowthScreenState extends ConsumerState<GrowthScreen> {
     final entriesAsync = ref.watch(growthEntriesProvider);
     final theme = AppTheme.of(context);
 
-    return Stack(
-      children: [
-        entriesAsync.when(
-          loading: () => Center(
-            child: CircularProgressIndicator(color: theme.colors.primary),
-          ),
-          error: (e, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
-              child: Text(
-                'Could not load growth data: $e',
-                textAlign: TextAlign.center,
-                style: theme.typography.body.copyWith(
-                  color: theme.colors.textSecondary,
-                ),
+    return AppScaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            const BabyScreenHeader(title: 'Growth'),
+            Expanded(
+              child: Stack(
+                children: [
+                  entriesAsync.when(
+                    loading: () => Center(
+                      child: CircularProgressIndicator(
+                        color: theme.colors.primary,
+                      ),
+                    ),
+                    error: (e, _) => Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        child: Text(
+                          'Could not load growth data: $e',
+                          textAlign: TextAlign.center,
+                          style: theme.typography.body.copyWith(
+                            color: theme.colors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    data: (entries) {
+                      if (entries.isEmpty) {
+                        return const AppEmptyState(
+                          icon: LucideIcons.ruler,
+                          message:
+                              'No growth entries yet — add your first measurement.',
+                        );
+                      }
+                      return _GrowthBody(
+                        entries: entries,
+                        measure: _measure,
+                        onMeasureChanged: (m) => setState(() => _measure = m),
+                      );
+                    },
+                  ),
+                  Positioned(
+                    right: AppSpacing.xl,
+                    bottom: AppSpacing.l,
+                    child: AppExtendedFab(
+                      icon: LucideIcons.plus,
+                      label: 'Add Measurement',
+                      onTap: _addEntry,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ),
-          data: (entries) {
-            if (entries.isEmpty) {
-              return const AppEmptyState(
-                icon: LucideIcons.ruler,
-                message: 'No growth entries yet — add your first measurement.',
-              );
-            }
-            return _GrowthBody(
-              entries: entries,
-              measure: _measure,
-              onMeasureChanged: (m) => setState(() => _measure = m),
-            );
-          },
+          ],
         ),
-        Positioned(
-          right: AppSpacing.xl,
-          bottom: AppSpacing.l,
-          child: AppExtendedFab(
-            icon: LucideIcons.plus,
-            label: 'Add Measurement',
-            onTap: _addEntry,
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

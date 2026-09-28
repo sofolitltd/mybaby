@@ -28,7 +28,7 @@ class AppExtendedFab extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppRadii.pill),
       child: Container(
-        height: 56,
+        height: 48,
         padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
         decoration: BoxDecoration(
           color: colors.primary,

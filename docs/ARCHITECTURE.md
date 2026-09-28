@@ -40,7 +40,9 @@ memories/{memoryId}          { uid, babyId, date, title, caption, mediaDriveFile
 vaccinations/{vaccineId}     { uid, babyId, name, doseNumber, scheduledDate, administeredDate, status }
 documents/{docId}            { uid, babyId, title, category, driveFileId, mimeType, date, tags[] }
 doctorVisits/{visitId}       { uid, babyId, date, doctorName, reason, notes, prescriptionDriveFileIds[] }
+medications/{medicationId}   { uid, babyId, name, dosage, startDate, durationDays, reminderTimes[], notes }
 careLogs/{logId}             { uid, babyId, type: feed|sleep|diaper, startTime, endTime, subtype, amount, note }
+tasks/{taskId}                { uid, babyId, title, note, dueDate, notify, completedAt, createdAt }
 ```
 
 Security rule shape: one rule block per collection, checking the `uid` field on the document rather than a path segment — e.g. `match /growthEntries/{entryId} { allow read, update, delete: if request.auth.uid == resource.data.uid; allow create: if request.auth.uid == request.resource.data.uid; }`. `users/{uid}` is the one exception, keyed directly by `uid` as the doc id rather than a `uid` field: `match /users/{uid} { allow read, write: if request.auth.uid == uid; }`. See `firestore.rules`.

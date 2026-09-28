@@ -13,8 +13,6 @@ void main() async {
   configureUrlStrategy();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   if (!kIsWeb) {
-    // Local reminder notifications (vaccinations, growth check-ins, care
-    // log) are mobile-only for now — see docs/ARCHITECTURE.md.
     await NotificationService.instance.init();
   }
   runApp(const ProviderScope(child: MyBabyApp()));

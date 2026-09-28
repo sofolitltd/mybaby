@@ -61,6 +61,7 @@ dependencies:
   file_picker: ^13.1.0
   crop_your_image: ^2.0.0
   image: ^4.10.1
+  flutter_secure_storage: ^11.2.0
 
 dev_dependencies:
   flutter_test:

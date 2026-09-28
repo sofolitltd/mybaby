@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "mybaby-app-bd"
-  }
+  },
+  "targets": {
+    "mybaby-app-bd": {
+      "hosting": {
+        "mybabybd": [
+          "mybabybd"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }

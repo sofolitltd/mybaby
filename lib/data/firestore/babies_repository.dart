@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/baby.dart';
-import 'vaccinations_repository.dart';
 
 /// CRUD for the flat top-level `babies` collection, scoped by a `uid` field
 /// on each document — see docs/ARCHITECTURE.md#firestore-schema and
@@ -32,13 +31,6 @@ class BabiesRepository {
   }) async {
     final draft = Baby(id: '', name: name, dob: dob, sex: sex);
     final ref = await _babies.add({...draft.toFirestore(), 'uid': _uid});
-    // Every baby gets a starting vaccination schedule — see
-    // docs/PRD.md#open-decision-points for the region-customization caveat.
-    await VaccinationsRepository(
-      _firestore,
-      _uid,
-      ref.id,
-    ).seedStandardSchedule(dob);
     return Baby(id: ref.id, name: name, dob: dob, sex: sex);
   }
 

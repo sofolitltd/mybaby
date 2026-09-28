@@ -6,6 +6,7 @@ class DoctorVisit {
   final String doctorName;
   final String reason;
   final String? notes;
+  final List<String> prescriptionDriveFileIds;
 
   const DoctorVisit({
     required this.id,
@@ -13,6 +14,7 @@ class DoctorVisit {
     required this.doctorName,
     required this.reason,
     this.notes,
+    this.prescriptionDriveFileIds = const [],
   });
 
   static DoctorVisit fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
@@ -23,6 +25,10 @@ class DoctorVisit {
       doctorName: data['doctorName'] as String,
       reason: data['reason'] as String,
       notes: data['notes'] as String?,
+      prescriptionDriveFileIds:
+          (data['prescriptionDriveFileIds'] as List<dynamic>?)
+              ?.cast<String>() ??
+          const [],
     );
   }
 
@@ -31,5 +37,6 @@ class DoctorVisit {
     'doctorName': doctorName,
     'reason': reason,
     'notes': notes,
+    'prescriptionDriveFileIds': prescriptionDriveFileIds,
   };
 }

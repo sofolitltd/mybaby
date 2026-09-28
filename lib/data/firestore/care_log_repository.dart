@@ -21,4 +21,19 @@ class CareLogRepository extends FlatBabyEntityRepository<CareLogEntry> {
       updateFields(id, {'endTime': Timestamp.fromDate(endTime)});
 
   Future<void> resume(String id) => updateFields(id, {'endTime': null});
+
+  Future<void> updateDetails(
+    String id, {
+    required DateTime startTime,
+    DateTime? endTime,
+    String? subtype,
+    String? note,
+  }) {
+    return updateFields(id, {
+      'startTime': Timestamp.fromDate(startTime),
+      'endTime': endTime == null ? null : Timestamp.fromDate(endTime),
+      'subtype': subtype,
+      'note': note,
+    });
+  }
 }

@@ -22,12 +22,14 @@ import '../../../core/picked_file.dart';
 import '../../../core/providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/motion/tap_scale.dart';
+import '../../../data/drive/drive_repository.dart';
 import '../../../data/models/memory.dart';
 import '../../../data/models/milestone.dart';
 import '../../../shared/widgets/app_button.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_chip.dart';
 import '../../../shared/widgets/app_scaffold.dart';
+import '../../../shared/widgets/drive_error_snackbar.dart';
 import '../../babies/widgets/baby_screen_header.dart';
 
 const _maxMedia = 6;
@@ -65,7 +67,10 @@ const _moods = [
 /// v1 has no co-parent/shared-account support (see CLAUDE.md) and there's
 /// no weather API or audio-recording package wired into the app.
 class AddMemoryScreen extends ConsumerStatefulWidget {
-  const AddMemoryScreen({super.key});
+  const AddMemoryScreen({super.key, this.editingMemory});
+
+  /// When set, the form edits this memory instead of creating a new one.
+  final Memory? editingMemory;
 
   @override
   ConsumerState<AddMemoryScreen> createState() => _AddMemoryScreenState();
@@ -84,6 +89,27 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
   bool _saving = false;
 
   bool get _canSave => _titleController.text.trim().isNotEmpty && !_saving;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.editingMemory;
+    if (existing == null) return;
+    _titleController.text = existing.title;
+    _storyController.text = existing.caption;
+    _locationController.text = existing.location ?? '';
+    _dateTime = existing.date;
+    _milestoneLabel = existing.milestoneLabel;
+    // `tags` mixes the category label and mood labels together on save (see
+    // `_save`), so on load we split them back apart by matching against the
+    // known category/mood label sets rather than relying on position.
+    _category = existing.milestoneLabel != null
+        ? 'Milestone'
+        : existing.tags
+              .where((tag) => _categories.any((c) => c.label == tag))
+              .firstOrNull;
+    _moodSelection.addAll(existing.tags.where(_moods.contains));
+  }
 
   @override
   void dispose() {
@@ -142,8 +168,9 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
     if (memoriesRepo == null) return;
     setState(() => _saving = true);
     try {
-      final driveFileIds = <String>[];
-      final mimeTypes = <String>[];
+      final existing = widget.editingMemory;
+      final driveFileIds = [...?existing?.mediaDriveFileIds];
+      final mimeTypes = [...?existing?.mediaMimeTypes];
       if (_media.isNotEmpty) {
         final drive = ref.read(driveRepositoryProvider);
         final folderId = await drive.ensureAppFolder();
@@ -160,27 +187,34 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
         }
       }
       final tags = [?_category, ..._moodSelection];
-      await memoriesRepo.add(
-        Memory(
-          id: '',
-          date: _dateTime,
-          title: _titleController.text.trim(),
-          caption: _storyController.text.trim(),
-          mediaDriveFileIds: driveFileIds,
-          mediaMimeTypes: mimeTypes,
-          milestoneLabel: _category == 'Milestone' ? _milestoneLabel : null,
-          location: _locationController.text.trim().isEmpty
-              ? null
-              : _locationController.text.trim(),
-          tags: tags,
-        ),
+      final memory = Memory(
+        id: existing?.id ?? '',
+        date: _dateTime,
+        title: _titleController.text.trim(),
+        caption: _storyController.text.trim(),
+        mediaDriveFileIds: driveFileIds,
+        mediaMimeTypes: mimeTypes,
+        milestoneLabel: _category == 'Milestone' ? _milestoneLabel : null,
+        location: _locationController.text.trim().isEmpty
+            ? null
+            : _locationController.text.trim(),
+        tags: tags,
       );
+      if (existing != null) {
+        await memoriesRepo.updateFields(existing.id, memory.toFirestore());
+      } else {
+        await memoriesRepo.add(memory);
+      }
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Could not save memory: $e')));
+        if (e is DriveAuthException) {
+          showDriveErrorSnackBar(context, ref, e);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not save memory: $e')),
+          );
+        }
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -206,7 +240,9 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            const BabyScreenHeader(title: 'Add Memory'),
+            BabyScreenHeader(
+              title: widget.editingMemory != null ? 'Edit Memory' : 'Add Memory',
+            ),
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(
@@ -471,6 +507,43 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
                       ],
                     ),
                   ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      TapScale(
+                        onTap: () => _showComingSoon('Saving as a draft'),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xs),
+                          child: Text(
+                            'Save as Draft',
+                            style: theme.typography.label.copyWith(
+                              color: theme.colors.textTertiary,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '  •  ',
+                        style: theme.typography.label.copyWith(
+                          color: theme.colors.textTertiary,
+                        ),
+                      ),
+                      TapScale(
+                        onTap: () => context.pop(),
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                        child: Padding(
+                          padding: const EdgeInsets.all(AppSpacing.xs),
+                          child: Text(
+                            'Discard',
+                            style: theme.typography.label.copyWith(
+                              color: theme.colors.status.overdue,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -483,70 +556,28 @@ class _AddMemoryScreenState extends ConsumerState<AddMemoryScreen> {
                   AppSpacing.l,
                   AppSpacing.l,
                 ),
-                child: Column(
-                  children: [
-                    SizedBox(
-                      width: double.infinity,
-                      child: AppButton(
-                        onPressed: _canSave ? _save : null,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              LucideIcons.circle_check,
-                              size: 18,
-                              color: theme.colors.onPrimary,
-                            ),
-                            const SizedBox(width: AppSpacing.xs),
-                            Text(
-                              'Save Memory',
-                              style: theme.typography.label.copyWith(
-                                color: theme.colors.onPrimary,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.s),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: AppButton(
+                    onPressed: _canSave ? _save : null,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        TapScale(
-                          onTap: () => _showComingSoon('Saving as a draft'),
-                          borderRadius: BorderRadius.circular(AppRadii.pill),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.xs),
-                            child: Text(
-                              'Save as Draft',
-                              style: theme.typography.label.copyWith(
-                                color: theme.colors.textTertiary,
-                              ),
-                            ),
-                          ),
+                        Icon(
+                          LucideIcons.circle_check,
+                          size: 18,
+                          color: theme.colors.onPrimary,
                         ),
+                        const SizedBox(width: AppSpacing.xs),
                         Text(
-                          '  •  ',
+                          'Save Memory',
                           style: theme.typography.label.copyWith(
-                            color: theme.colors.textTertiary,
-                          ),
-                        ),
-                        TapScale(
-                          onTap: () => context.pop(),
-                          borderRadius: BorderRadius.circular(AppRadii.pill),
-                          child: Padding(
-                            padding: const EdgeInsets.all(AppSpacing.xs),
-                            child: Text(
-                              'Discard',
-                              style: theme.typography.label.copyWith(
-                                color: theme.colors.status.overdue,
-                              ),
-                            ),
+                            color: theme.colors.onPrimary,
                           ),
                         ),
                       ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

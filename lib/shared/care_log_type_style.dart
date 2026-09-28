@@ -12,13 +12,33 @@ import '../data/models/care_log_entry.dart';
   CareLogType.feed => (LucideIcons.milk, 'Feed'),
   CareLogType.sleep => (LucideIcons.moon, 'Sleep'),
   CareLogType.diaper => (LucideIcons.baby, 'Diaper'),
+  CareLogType.bath => (LucideIcons.bath, 'Bath'),
 };
 
 Color careLogTypeColor(AppColors colors, CareLogType type) => switch (type) {
   CareLogType.feed => colors.secondary,
   CareLogType.sleep => colors.info,
   CareLogType.diaper => colors.primary,
+  CareLogType.bath => colors.tertiary,
 };
+
+/// True for a feed/sleep entry that's an actively running timer. Diaper and
+/// bath entries also have `endTime == null` (they're instant, never timed),
+/// so checking the type keeps them from being mistaken for a running timer.
+bool isRunningTimer(CareLogEntry entry) =>
+    entry.endTime == null &&
+    (entry.type == CareLogType.feed || entry.type == CareLogType.sleep);
+
+/// `H:MM:SS` (or `MM:SS` under an hour) for a live-running timer's elapsed
+/// duration — used wherever a feed/sleep timer's countdown is displayed.
+String formatElapsedTimer(Duration elapsed) {
+  final hours = elapsed.inHours;
+  final minutes = elapsed.inMinutes.remainder(60);
+  final seconds = elapsed.inSeconds.remainder(60);
+  final mm = minutes.toString().padLeft(2, '0');
+  final ss = seconds.toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$mm:$ss' : '$mm:$ss';
+}
 
 bool isToday(DateTime time) {
   final now = DateTime.now();

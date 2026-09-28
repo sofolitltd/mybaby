@@ -5,6 +5,8 @@ import '../../features/babies/add_baby_screen.dart';
 import '../../features/babies/edit_baby_screen.dart';
 import '../../data/models/baby.dart';
 import '../../data/models/doctor_visit.dart';
+import '../../data/models/medication.dart';
+import '../../data/models/memory.dart';
 import '../../data/models/vaccination.dart';
 import '../../features/care_log/care_log_screen.dart';
 import '../../features/growth/growth_screen.dart';
@@ -13,8 +15,11 @@ import '../../features/health/widgets/add_health_record_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/memories/memories_screen.dart';
 import '../../features/memories/widgets/add_memory_screen.dart';
+import '../../features/milestones/screens/milestones_screen.dart';
+import '../../features/settings/notifications_list_screen.dart';
 import '../../features/settings/settings_screen.dart';
 import '../../features/shell/app_shell.dart';
+import '../../features/tasks/tasks_screen.dart';
 import '../../shared/widgets/web_selection_area.dart';
 import '../theme/motion/page_transition.dart';
 
@@ -43,9 +48,9 @@ GoRouter buildRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/growth',
+                path: '/care-log',
                 builder: (context, state) =>
-                    const _Titled(title: 'Growth', child: GrowthScreen()),
+                    const _Titled(title: 'Care Log', child: CareLogScreen()),
               ),
             ],
           ),
@@ -70,23 +75,24 @@ GoRouter buildRouter() {
           StatefulShellBranch(
             routes: [
               GoRoute(
-                path: '/care-log',
+                path: '/tasks',
                 builder: (context, state) =>
-                    const _Titled(title: 'Care Log', child: CareLogScreen()),
+                    const _Titled(title: 'Tasks', child: TasksScreen()),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/settings',
+                builder: (context, state) => const _Titled(
+                  title: 'Settings',
+                  child: WebSelectionArea(child: SettingsScreen()),
+                ),
               ),
             ],
           ),
         ],
-      ),
-      GoRoute(
-        path: '/settings',
-        pageBuilder: (context, state) => appPageTransition(
-          key: state.pageKey,
-          child: const _Titled(
-            title: 'Settings',
-            child: WebSelectionArea(child: SettingsScreen()),
-          ),
-        ),
       ),
       GoRoute(
         path: '/add-baby',
@@ -122,6 +128,7 @@ GoRouter buildRouter() {
                 child: AddHealthRecordScreen(
                   editingVaccination: extra is Vaccination ? extra : null,
                   editingDoctorVisit: extra is DoctorVisit ? extra : null,
+                  editingMedication: extra is Medication ? extra : null,
                 ),
               ),
             ),
@@ -130,11 +137,47 @@ GoRouter buildRouter() {
       ),
       GoRoute(
         path: '/add-memory',
+        pageBuilder: (context, state) {
+          final extra = state.extra;
+          final editingMemory = extra is Memory ? extra : null;
+          return appPageTransition(
+            key: state.pageKey,
+            child: _Titled(
+              title: editingMemory == null ? 'Add Memory' : 'Edit Memory',
+              child: WebSelectionArea(
+                child: AddMemoryScreen(editingMemory: editingMemory),
+              ),
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/milestones',
         pageBuilder: (context, state) => appPageTransition(
           key: state.pageKey,
           child: const _Titled(
-            title: 'Add Memory',
-            child: WebSelectionArea(child: AddMemoryScreen()),
+            title: 'Milestones',
+            child: WebSelectionArea(child: MilestonesScreen()),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/growth',
+        pageBuilder: (context, state) => appPageTransition(
+          key: state.pageKey,
+          child: const _Titled(
+            title: 'Growth',
+            child: WebSelectionArea(child: GrowthScreen()),
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/settings/reminders',
+        pageBuilder: (context, state) => appPageTransition(
+          key: state.pageKey,
+          child: const _Titled(
+            title: 'Reminders & Alerts',
+            child: WebSelectionArea(child: NotificationsListScreen()),
           ),
         ),
       ),

@@ -11,8 +11,10 @@ import '../data/firestore/care_log_repository.dart';
 import '../data/firestore/doctor_visits_repository.dart';
 import '../data/firestore/documents_repository.dart';
 import '../data/firestore/growth_repository.dart';
+import '../data/firestore/medications_repository.dart';
 import '../data/firestore/memories_repository.dart';
 import '../data/firestore/milestones_repository.dart';
+import '../data/firestore/task_repository.dart';
 import '../data/firestore/user_repository.dart';
 import '../data/firestore/vaccinations_repository.dart';
 import '../data/models/baby.dart';
@@ -20,8 +22,10 @@ import '../data/models/care_log_entry.dart';
 import '../data/models/doctor_visit.dart';
 import '../data/models/document_item.dart';
 import '../data/models/growth_entry.dart';
+import '../data/models/medication.dart';
 import '../data/models/memory.dart';
 import '../data/models/milestone.dart';
+import '../data/models/task.dart';
 import '../data/models/vaccination.dart';
 import '../features/auth/auth_repository.dart';
 import 'notifications/notification_service.dart';
@@ -177,6 +181,19 @@ final doctorVisitsProvider = StreamProvider<List<DoctorVisit>>((ref) {
   return repo.watchVisits();
 });
 
+final medicationsRepositoryProvider = Provider<MedicationsRepository?>((ref) {
+  final uid = ref.watch(uidProvider);
+  final baby = ref.watch(activeBabyProvider);
+  if (uid == null || baby == null) return null;
+  return MedicationsRepository(FirebaseFirestore.instance, uid, baby.id);
+});
+
+final medicationsProvider = StreamProvider<List<Medication>>((ref) {
+  final repo = ref.watch(medicationsRepositoryProvider);
+  if (repo == null) return Stream.value(const []);
+  return repo.watchMedications();
+});
+
 final documentsRepositoryProvider = Provider<DocumentsRepository?>((ref) {
   final uid = ref.watch(uidProvider);
   final baby = ref.watch(activeBabyProvider);
@@ -201,4 +218,17 @@ final careLogProvider = StreamProvider<List<CareLogEntry>>((ref) {
   final repo = ref.watch(careLogRepositoryProvider);
   if (repo == null) return Stream.value(const []);
   return repo.watchRecent();
+});
+
+final taskRepositoryProvider = Provider<TaskRepository?>((ref) {
+  final uid = ref.watch(uidProvider);
+  final baby = ref.watch(activeBabyProvider);
+  if (uid == null || baby == null) return null;
+  return TaskRepository(FirebaseFirestore.instance, uid, baby.id);
+});
+
+final tasksProvider = StreamProvider<List<Task>>((ref) {
+  final repo = ref.watch(taskRepositoryProvider);
+  if (repo == null) return Stream.value(const []);
+  return repo.watchTasks();
 });

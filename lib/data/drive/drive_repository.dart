@@ -6,6 +6,18 @@ import '../../features/auth/auth_repository.dart';
 
 const _appFolderName = 'MyBaby App';
 
+/// Thrown when Drive access couldn't be restored — the caller should offer
+/// [AuthRepository.reauthorizeDrive] rather than treating this as a generic
+/// failure, since silent refresh (see AuthRepository) has already been
+/// tried and failed by the time this is thrown.
+class DriveAuthException implements Exception {
+  const DriveAuthException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 /// Files/photos/documents live in this Drive folder, in the parent's own
 /// Google account — never Firebase Storage. See
 /// docs/ARCHITECTURE.md#data-architecture and
@@ -16,17 +28,19 @@ class DriveRepository {
 
   final AuthRepository _authRepository;
 
-  drive.DriveApi _api() {
-    final client = _authRepository.driveHttpClient();
+  Future<drive.DriveApi> _api() async {
+    final client = await _authRepository.driveHttpClient();
     if (client == null) {
-      throw StateError('Drive access not authorized — sign in again.');
+      throw const DriveAuthException(
+        'Drive access not authorized — sign in again.',
+      );
     }
     return drive.DriveApi(client);
   }
 
   /// Returns the id of the app's Drive folder, creating it on first use.
   Future<String> ensureAppFolder() async {
-    final api = _api();
+    final api = await _api();
     final existing = await api.files.list(
       q: "name = '$_appFolderName' and mimeType = 'application/vnd.google-apps.folder' and trashed = false",
       spaces: 'drive',
@@ -51,7 +65,7 @@ class DriveRepository {
     required String folderId,
     void Function(double progress)? onProgress,
   }) async {
-    final api = _api();
+    final api = await _api();
     final media = drive.Media(
       _chunkedProgressStream(bytes, onProgress),
       bytes.length,
@@ -94,7 +108,7 @@ class DriveRepository {
   /// app's own files' `size` metadata is allowed under `drive.file` — the
   /// scope grants read access to any file this app created, size included.
   Future<int> appFolderUsageBytes() async {
-    final api = _api();
+    final api = await _api();
     final folderId = await ensureAppFolder();
     var total = 0;
     String? pageToken;
@@ -117,7 +131,7 @@ class DriveRepository {
   /// `drive.file`-scoped file has no public URL, so we fetch and decode it
   /// ourselves rather than linking out to Drive).
   Future<Uint8List> downloadBytes(String fileId) async {
-    final api = _api();
+    final api = await _api();
     final media = await api.files.get(
       fileId,
       downloadOptions: drive.DownloadOptions.fullMedia,

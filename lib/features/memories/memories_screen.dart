@@ -12,168 +12,70 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/motion/staggered_entrance.dart';
 import '../../core/theme/motion/tap_scale.dart';
 import '../../data/models/memory.dart';
-import '../../data/models/milestone.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_empty_state.dart';
 import '../../shared/widgets/app_extended_fab.dart';
+import '../../shared/widgets/app_scaffold.dart';
+import '../../shared/widgets/app_status_pill.dart';
 import '../../shared/widgets/drive_image.dart';
+import '../../shared/widgets/memory_actions.dart';
+import '../babies/widgets/baby_screen_header.dart';
 
 class MemoriesScreen extends ConsumerWidget {
   const MemoriesScreen({super.key});
-
-  Future<void> _toggleMilestone(
-    WidgetRef ref,
-    Milestone? current,
-    String label,
-  ) async {
-    final repo = ref.read(milestonesRepositoryProvider);
-    if (repo == null) return;
-    await repo.setAchieved(
-      label,
-      current?.achieved == true ? null : DateTime.now(),
-    );
-  }
 
   void _addMemory(BuildContext context) => context.push('/add-memory');
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final milestonesAsync = ref.watch(milestonesByLabelProvider);
     final memoriesAsync = ref.watch(memoriesProvider);
+    final theme = AppTheme.of(context);
+
+    return AppScaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            BabyScreenHeader(
+              title: 'Memories',
+              showBackButton: false,
+              trailing: memoriesAsync.maybeWhen(
+                data: (memories) => AppStatusPill(
+                  label: memories.length == 1
+                      ? '1 moment'
+                      : '${memories.length} moments',
+                  color: theme.colors.primary,
+                ),
+                orElse: () => null,
+              ),
+            ),
+            Expanded(
+              child: _MemoriesList(
+                memoriesAsync: memoriesAsync,
+                onAddMemory: () => _addMemory(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _MemoriesList extends ConsumerWidget {
+  const _MemoriesList({required this.memoriesAsync, required this.onAddMemory});
+
+  final AsyncValue<List<Memory>> memoriesAsync;
+  final VoidCallback onAddMemory;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = AppTheme.of(context);
 
     return Stack(
       children: [
         CustomScrollView(
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.l,
-                AppSpacing.l,
-                AppSpacing.l,
-                0,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: milestonesAsync.when(
-                  loading: () => Text(
-                    'Milestones',
-                    style: theme.typography.subtitle.copyWith(
-                      color: theme.colors.textPrimary,
-                    ),
-                  ),
-                  error: (e, _) => Text(
-                    'Milestones',
-                    style: theme.typography.subtitle.copyWith(
-                      color: theme.colors.textPrimary,
-                    ),
-                  ),
-                  data: (byLabel) {
-                    final achievedCount = byLabel.values
-                        .where((m) => m.achieved)
-                        .length;
-                    return Row(
-                      children: [
-                        Text(
-                          'Milestones',
-                          style: theme.typography.subtitle.copyWith(
-                            color: theme.colors.textPrimary,
-                          ),
-                        ),
-                        const SizedBox(width: AppSpacing.s),
-                        _CountBadge(label: '$achievedCount Achieved'),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.only(
-                top: AppSpacing.m,
-                bottom: AppSpacing.l,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 128,
-                  child: milestonesAsync.when(
-                    loading: () => const SizedBox.shrink(),
-                    error: (e, _) => Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.l,
-                      ),
-                      child: Text(
-                        'Could not load milestones: $e',
-                        style: theme.typography.body.copyWith(
-                          color: theme.colors.textSecondary,
-                        ),
-                      ),
-                    ),
-                    data: (byLabel) => ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpacing.l,
-                      ),
-                      itemCount: presetMilestoneLabels.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(width: AppSpacing.m),
-                      itemBuilder: (context, index) {
-                        final label = presetMilestoneLabels[index];
-                        final milestone = byLabel[label];
-                        return _MilestoneCard(
-                          label: label,
-                          achievedDate: milestone?.achievedDate,
-                          onTap: () => _toggleMilestone(ref, milestone, label),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.l,
-                0,
-                AppSpacing.l,
-                0,
-              ),
-              sliver: SliverToBoxAdapter(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Recent Memories',
-                            style: theme.typography.subtitle.copyWith(
-                              color: theme.colors.textPrimary,
-                            ),
-                          ),
-                          memoriesAsync.maybeWhen(
-                            data: (memories) => Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                memories.length == 1
-                                    ? '1 moment'
-                                    : '${memories.length} moments',
-                                style: theme.typography.caption.copyWith(
-                                  color: theme.colors.textSecondary,
-                                ),
-                              ),
-                            ),
-                            orElse: () => const SizedBox.shrink(),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _NewEntryButton(onTap: () => _addMemory(context)),
-                  ],
-                ),
-              ),
-            ),
-            const SliverPadding(padding: EdgeInsets.only(top: AppSpacing.m)),
+            const SliverPadding(padding: EdgeInsets.only(top: AppSpacing.s)),
             memoriesAsync.when(
               loading: () => SliverToBoxAdapter(
                 child: Padding(
@@ -198,15 +100,20 @@ class MemoriesScreen extends ConsumerWidget {
               ),
               data: (memories) {
                 if (memories.isEmpty) {
-                  return const SliverToBoxAdapter(
-                    child: AppEmptyState(
-                      icon: LucideIcons.book_open,
-                      message: 'No memories yet — add your first one.',
+                  return const SliverPadding(
+                    padding: EdgeInsets.symmetric(horizontal: AppSpacing.xl),
+                    sliver: SliverToBoxAdapter(
+                      child: AppEmptyState(
+                        icon: LucideIcons.book_open,
+                        message: 'No memories yet — add your first one.',
+                      ),
                     ),
                   );
                 }
                 return SliverPadding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppSpacing.l),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppSpacing.xl,
+                  ),
                   sliver: SliverList.list(
                     children: [
                       StaggeredListEntrance(
@@ -216,7 +123,11 @@ class MemoriesScreen extends ConsumerWidget {
                               padding: const EdgeInsets.only(
                                 bottom: AppSpacing.m,
                               ),
-                              child: _MemoryCard(memory: memory),
+                              child: _MemoryCard(
+                                memory: memory,
+                                onMore: () =>
+                                    showMemoryActions(context, ref, memory),
+                              ),
                             ),
                         ],
                       ),
@@ -236,7 +147,7 @@ class MemoriesScreen extends ConsumerWidget {
           child: AppExtendedFab(
             icon: LucideIcons.camera,
             label: 'Capture Memory',
-            onTap: () => _addMemory(context),
+            onTap: onAddMemory,
           ),
         ),
       ],
@@ -244,166 +155,11 @@ class MemoriesScreen extends ConsumerWidget {
   }
 }
 
-/// Small pill next to a section heading, e.g. "3 Achieved".
-class _CountBadge extends StatelessWidget {
-  const _CountBadge({required this.label});
-
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    final colors = theme.colors;
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppSpacing.s,
-        vertical: 3,
-      ),
-      decoration: BoxDecoration(
-        color: colors.primary.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(AppRadii.pill),
-      ),
-      child: Text(
-        label,
-        style: theme.typography.label.copyWith(color: colors.primary),
-      ),
-    );
-  }
-}
-
-/// Standalone milestone card for the horizontal scroller — icon badge,
-/// label, and either the achieved date or a "Not yet" placeholder. Replaces
-/// the old boxed grid of tiles with cards that read like the rest of the
-/// app's horizontally-scrolling summary rows (see Home's growth/milestone
-/// strips).
-class _MilestoneCard extends StatelessWidget {
-  const _MilestoneCard({
-    required this.label,
-    required this.achievedDate,
-    required this.onTap,
-  });
-
-  final String label;
-  final DateTime? achievedDate;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    final colors = theme.colors;
-    final achieved = achievedDate != null;
-    final tint = achieved ? colors.primary : colors.textTertiary;
-
-    return TapScale(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.m),
-      child: Container(
-        width: 132,
-        padding: const EdgeInsets.all(AppSpacing.m),
-        decoration: BoxDecoration(
-          color: colors.surface,
-          borderRadius: BorderRadius.circular(AppRadii.m),
-          border: Border.all(
-            color: achieved
-                ? colors.primary.withValues(alpha: 0.3)
-                : colors.hairline,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Container(
-                  width: 36,
-                  height: 36,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: achieved
-                        ? colors.primary.withValues(alpha: 0.14)
-                        : colors.surfaceSunken,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    achieved ? LucideIcons.check : LucideIcons.circle_dashed,
-                    size: 18,
-                    color: tint,
-                  ),
-                ),
-                if (achieved)
-                  Icon(
-                    LucideIcons.badge_check,
-                    size: 16,
-                    color: colors.primary,
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.s),
-            Text(
-              label,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.typography.caption.copyWith(
-                color: colors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              achieved ? DateFormat.MMMd().format(achievedDate!) : 'Not yet',
-              style: theme.typography.label.copyWith(
-                color: achieved ? colors.primary : colors.textTertiary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NewEntryButton extends StatelessWidget {
-  const _NewEntryButton({required this.onTap});
-
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AppTheme.of(context);
-    return TapScale(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AppRadii.pill),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.m,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: theme.colors.primary,
-          borderRadius: BorderRadius.circular(AppRadii.pill),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(LucideIcons.plus, size: 14, color: theme.colors.onPrimary),
-            const SizedBox(width: AppSpacing.xs),
-            Text(
-              'New Entry',
-              style: theme.typography.label.copyWith(
-                color: theme.colors.onPrimary,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _MemoryCard extends StatelessWidget {
-  const _MemoryCard({required this.memory});
+  const _MemoryCard({required this.memory, required this.onMore});
 
   final Memory memory;
+  final VoidCallback onMore;
 
   @override
   Widget build(BuildContext context) {
@@ -484,6 +240,19 @@ class _MemoryCard extends StatelessWidget {
                       DateFormat.MMMd().format(memory.date),
                       style: theme.typography.caption.copyWith(
                         color: colors.textSecondary,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.xs),
+                    TapScale(
+                      onTap: onMore,
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                      child: Padding(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          LucideIcons.ellipsis_vertical,
+                          size: 18,
+                          color: colors.textTertiary,
+                        ),
                       ),
                     ),
                   ],

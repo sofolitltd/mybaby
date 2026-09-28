@@ -11,13 +11,19 @@ import '../../core/theme/motion/staggered_entrance.dart';
 import '../../core/theme/motion/tap_scale.dart';
 import '../../data/models/care_log_entry.dart';
 import '../../data/models/growth_entry.dart';
+import '../../data/models/milestone.dart';
+import '../../data/models/task.dart';
 import '../../shared/care_log_type_style.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_empty_state.dart';
 import '../../shared/widgets/app_glass_surface.dart';
 import '../../shared/widgets/app_status_pill.dart';
+import '../../shared/widgets/care_log_entry_actions.dart';
+import '../../shared/widgets/baby_switcher_sheet.dart';
+import '../../shared/widgets/edit_task_sheet.dart';
 import '../../shared/widgets/quick_log_sheet.dart';
-import '../care_log/providers/active_care_log_timers_provider.dart';
+import '../../shared/widgets/task_entry_actions.dart';
+import '../../shared/widgets/task_row.dart';
 
 /// Mirrors the Stitch "My Baby - Home" mockup: one scrollable page — a
 /// combined growth+today's-stats card, the quick-log section, then a live
@@ -30,12 +36,23 @@ class HomeScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final growth = ref.watch(growthEntriesProvider).value ?? const [];
     final careLog = ref.watch(careLogProvider).value ?? const [];
-    final activeTimers = ref.watch(activeCareLogTimersProvider);
+    final milestonesByLabel = ref.watch(milestonesByLabelProvider).value ?? const {};
+    final tasks = ref.watch(tasksProvider).value ?? const [];
+    final openTasks = [for (final t in tasks) if (!t.completed) t]
+      ..sort((a, b) {
+        if (a.dueDate == null && b.dueDate == null) return 0;
+        if (a.dueDate == null) return 1;
+        if (b.dueDate == null) return -1;
+        return a.dueDate!.compareTo(b.dueDate!);
+      });
     final latestGrowth = growth.isEmpty ? null : growth.last;
     final stats = computeDailyStats(careLog);
+    // Running timers surface here regardless of when they started (a timer
+    // begun yesterday and still going matters more than a same-day cutoff);
+    // finished entries are scoped to today like the rest of this screen.
     final todayEntries = [
       for (final e in careLog)
-        if (isToday(e.startTime) && e.endTime != null) e,
+        if (e.endTime == null || isToday(e.startTime)) e,
     ]..sort((a, b) => b.startTime.compareTo(a.startTime));
 
     return ListView(
@@ -48,22 +65,103 @@ class HomeScreen extends ConsumerWidget {
       children: [
         StaggeredListEntrance(
           children: [
-            if (activeTimers.isNotEmpty) ...[
-              for (final timer in activeTimers)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.m),
-                  child: _ActiveTimerBanner(entry: timer),
-                ),
-              const SizedBox(height: AppSpacing.s),
-            ],
+            const _BabySwitcherSection(),
+            const SizedBox(height: AppSpacing.xl),
             _CurrentGrowthCard(entry: latestGrowth, stats: stats),
             const SizedBox(height: AppSpacing.xl),
             _QuickLogSection(),
             const SizedBox(height: AppSpacing.xl),
             _TodaysActivitySection(entries: todayEntries),
+            const SizedBox(height: AppSpacing.xl),
+            _TasksSection(tasks: openTasks),
+            const SizedBox(height: AppSpacing.xl),
+            _MilestonesCard(byLabel: milestonesByLabel),
+            const SizedBox(height: AppSpacing.xl),
+            _GrowthSection(entry: latestGrowth),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Tappable active-baby summary — avatar, name, age — opening the baby
+/// switcher sheet. Moved here from the old app-bar top bar.
+class _BabySwitcherSection extends ConsumerWidget {
+  const _BabySwitcherSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
+    final baby = ref.watch(activeBabyProvider);
+
+    return TapScale(
+      onTap: () => showBabySwitcherSheet(context),
+      borderRadius: BorderRadius.circular(AppRadii.pill),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _BabyAvatar(
+            driveFileId: baby?.avatarDriveFileId,
+            emoji: baby?.avatarEmoji ?? '👶',
+          ),
+          const SizedBox(width: AppSpacing.s),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                baby?.name ?? '—',
+                style: theme.typography.subtitle.copyWith(
+                  color: theme.colors.textPrimary,
+                ),
+              ),
+              if (baby?.ageInWeeks != null)
+                Text(
+                  '${baby!.ageInWeeks} weeks old',
+                  style: theme.typography.caption.copyWith(
+                    color: theme.colors.textSecondary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(width: AppSpacing.xs),
+          const Icon(LucideIcons.chevron_down, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+/// 32x32 circular baby avatar — shows the Drive-backed photo once it's
+/// loaded, falling back to the sex emoji while loading, on error, or when
+/// no photo was ever uploaded.
+class _BabyAvatar extends ConsumerWidget {
+  const _BabyAvatar({required this.driveFileId, required this.emoji});
+
+  final String? driveFileId;
+  final String emoji;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colors = AppTheme.of(context).colors;
+    final fileId = driveFileId;
+    final bytes = fileId == null
+        ? null
+        : ref.watch(driveImageBytesProvider(fileId)).value;
+
+    return Container(
+      width: 40,
+      height: 40,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.surfaceSunken,
+        shape: BoxShape.circle,
+        image: bytes == null
+            ? null
+            : DecorationImage(image: MemoryImage(bytes), fit: BoxFit.cover),
+      ),
+      child: bytes == null ? Text(emoji) : null,
     );
   }
 }
@@ -80,7 +178,7 @@ class _CurrentGrowthCard extends StatelessWidget {
     final colors = theme.colors;
 
     return AppCard(
-      onTap: () => context.go('/growth'),
+      onTap: () => context.push('/growth'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -159,6 +257,133 @@ class _GrowthStat extends StatelessWidget {
               color: theme.colors.textPrimary,
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MilestonesCard extends StatelessWidget {
+  const _MilestonesCard({required this.byLabel});
+
+  final Map<String, Milestone> byLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final colors = theme.colors;
+    final achievedCount = byLabel.values.where((m) => m.achieved).length;
+    final total = presetMilestoneLabels.length;
+    final nextLabel = presetMilestoneLabels.firstWhere(
+      (label) => byLabel[label]?.achieved != true,
+      orElse: () => presetMilestoneLabels.last,
+    );
+
+    return AppCard(
+      onTap: () => context.push('/milestones'),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              LucideIcons.badge_check,
+              size: 20,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      'Milestones',
+                      style: theme.typography.subtitle.copyWith(
+                        color: colors.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(width: AppSpacing.s),
+                    AppStatusPill(
+                      label: '$achievedCount / $total',
+                      color: colors.primary,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  achievedCount == total
+                      ? 'All milestones achieved'
+                      : 'Next up: $nextLabel',
+                  style: theme.typography.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(LucideIcons.chevron_right, size: 18, color: colors.textTertiary),
+        ],
+      ),
+    );
+  }
+}
+
+class _GrowthSection extends StatelessWidget {
+  const _GrowthSection({required this.entry});
+
+  final GrowthEntry? entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AppTheme.of(context);
+    final colors = theme.colors;
+
+    return AppCard(
+      onTap: () => context.push('/growth'),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(LucideIcons.scale, size: 20, color: colors.primary),
+          ),
+          const SizedBox(width: AppSpacing.m),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Growth',
+                  style: theme.typography.subtitle.copyWith(
+                    color: colors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  entry == null
+                      ? 'Add your first measurement'
+                      : '${entry!.weightKg.toStringAsFixed(1)} kg  ·  ${entry!.heightCm.toStringAsFixed(0)} cm',
+                  style: theme.typography.caption.copyWith(
+                    color: colors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Icon(LucideIcons.chevron_right, size: 18, color: colors.textTertiary),
         ],
       ),
     );
@@ -252,64 +477,6 @@ class _QuickLogButton extends ConsumerWidget {
   }
 }
 
-class _ActiveTimerBanner extends ConsumerWidget {
-  const _ActiveTimerBanner({required this.entry});
-
-  final CareLogEntry entry;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final theme = AppTheme.of(context);
-    final (icon, label) = careLogTypeIconLabel(entry.type);
-    final tint = careLogTypeColor(theme.colors, entry.type);
-    return TapScale(
-      onTap: () => showQuickLogSheet(context, ref, entry.type),
-      borderRadius: BorderRadius.circular(AppRadii.m),
-      child: AppGlassSurface(
-        borderRadius: BorderRadius.circular(AppRadii.m),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.l,
-          vertical: AppSpacing.m,
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: tint),
-            const SizedBox(width: AppSpacing.m),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    '$label timer running',
-                    style: theme.typography.subtitle.copyWith(
-                      color: theme.colors.textPrimary,
-                    ),
-                  ),
-                  StreamBuilder<void>(
-                    stream: Stream.periodic(const Duration(seconds: 30)),
-                    builder: (context, _) {
-                      final elapsed = DateTime.now().difference(
-                        entry.startTime,
-                      );
-                      return Text(
-                        '${elapsed.inMinutes}m elapsed',
-                        style: theme.typography.caption.copyWith(
-                          color: theme.colors.textSecondary,
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-            AppStatusPill(label: 'Tap to stop', color: tint),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _TodaysActivitySection extends StatelessWidget {
   const _TodaysActivitySection({required this.entries});
 
@@ -371,17 +538,18 @@ class _TodaysActivitySection extends StatelessWidget {
   }
 }
 
-class _ActivityRow extends StatelessWidget {
+class _ActivityRow extends ConsumerWidget {
   const _ActivityRow({required this.entry});
 
   final CareLogEntry entry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = AppTheme.of(context);
     final colors = theme.colors;
     final (icon, label) = careLogTypeIconLabel(entry.type);
     final tint = careLogTypeColor(colors, entry.type);
+    final running = isRunningTimer(entry);
 
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.s),
@@ -408,7 +576,22 @@ class _ActivityRow extends StatelessWidget {
                     color: colors.textPrimary,
                   ),
                 ),
-                if (entry.summary.isNotEmpty)
+                if (running)
+                  StreamBuilder<void>(
+                    stream: Stream.periodic(const Duration(seconds: 1)),
+                    builder: (context, _) {
+                      final elapsed = DateTime.now().difference(
+                        entry.startTime,
+                      );
+                      return Text(
+                        formatElapsedTimer(elapsed),
+                        style: theme.typography.caption.copyWith(
+                          color: colors.textSecondary,
+                        ),
+                      );
+                    },
+                  )
+                else if (entry.summary.isNotEmpty)
                   Text(
                     entry.summary,
                     style: theme.typography.caption.copyWith(
@@ -418,14 +601,118 @@ class _ActivityRow extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            DateFormat.jm().format(entry.startTime),
-            style: theme.typography.caption.copyWith(
-              color: colors.textTertiary,
+          if (running)
+            TapScale(
+              onTap: () => showQuickLogSheet(context, ref, entry.type),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              child: AppStatusPill(label: 'Tap to stop', color: tint),
+            )
+          else
+            Text(
+              DateFormat.jm().format(entry.startTime),
+              style: theme.typography.caption.copyWith(
+                color: colors.textTertiary,
+              ),
+            ),
+          TapScale(
+            onTap: () => showCareLogEntryActions(context, ref, entry),
+            borderRadius: BorderRadius.circular(AppRadii.s),
+            child: Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.s),
+              child: Icon(
+                LucideIcons.ellipsis_vertical,
+                size: 18,
+                color: colors.textTertiary,
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _TasksSection extends ConsumerWidget {
+  const _TasksSection({required this.tasks});
+
+  final List<Task> tasks;
+
+  Future<void> _complete(WidgetRef ref, Task task) async {
+    final repo = ref.read(taskRepositoryProvider);
+    if (repo == null) return;
+    await repo.toggleComplete(task.id, true);
+    final notifications = ref.read(notificationServiceProvider);
+    await notifications.cancelById(notifications.taskNotificationId(task.id));
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = AppTheme.of(context);
+    final colors = theme.colors;
+    final shown = tasks.take(4).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              'Tasks',
+              style: theme.typography.subtitle.copyWith(color: colors.textPrimary),
+            ),
+            const SizedBox(width: AppSpacing.s),
+            if (tasks.isNotEmpty)
+              AppStatusPill(label: '${tasks.length} open', color: colors.primary),
+            const Spacer(),
+            TapScale(
+              onTap: () {
+                final repo = ref.read(taskRepositoryProvider);
+                if (repo == null) return;
+                showEditTaskSheet(context, ref, repo);
+              },
+              child: Text(
+                'Add',
+                style: theme.typography.label.copyWith(color: colors.primary),
+              ),
+            ),
+            const SizedBox(width: AppSpacing.m),
+            TapScale(
+              onTap: () => context.go('/tasks'),
+              child: Text(
+                'See all',
+                style: theme.typography.label.copyWith(color: colors.primary),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AppSpacing.m),
+        if (shown.isEmpty)
+          const AppEmptyState(
+            icon: LucideIcons.list_checks,
+            message: 'No tasks yet — add one for an errand or appointment.',
+          )
+        else
+          AppCard(
+            padding: const EdgeInsets.symmetric(vertical: AppSpacing.xs, horizontal: AppSpacing.m),
+            child: Column(
+              children: [
+                for (var i = 0; i < shown.length; i++) ...[
+                  if (i != 0) Divider(height: 1, color: colors.hairline),
+                  TaskRow(
+                    task: shown[i],
+                    onToggle: () => _complete(ref, shown[i]),
+                    onTap: () {
+                      final repo = ref.read(taskRepositoryProvider);
+                      if (repo == null) return;
+                      showEditTaskSheet(context, ref, repo, editing: shown[i]);
+                    },
+                    onOpenActions: () => showTaskEntryActions(context, ref, shown[i]),
+                  ),
+                ],
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

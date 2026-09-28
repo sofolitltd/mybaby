@@ -1,6 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-enum CareLogType { feed, sleep, diaper }
+enum CareLogType { feed, sleep, diaper, bath }
 
 class CareLogEntry {
   final String id;

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart' show showDialog;
 import 'package:flutter/widgets.dart';
 
-import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/app_button.dart';
-import '../../../shared/widgets/app_glass_surface.dart';
+import '../../core/theme/app_theme.dart';
+import 'app_button.dart';
+import 'app_glass_surface.dart';
 
-/// Confirm-before-delete dialog for a health record (vaccination, doctor
-/// visit, or document) — these are deliberate records someone typed in, not
-/// the quick-log "Undo, not confirm" entries docs/UX.md describes, so a
-/// confirm step (rather than delete-then-offer-undo) is the safer default.
-Future<bool?> showRecordDeleteConfirm(
+/// Confirm-before-delete dialog shared by health records and care log
+/// entries — these are deliberate records someone typed in (or a running
+/// timer someone is about to cancel), not the quick-log "Undo, not confirm"
+/// taps docs/UX.md describes, so a confirm step (rather than
+/// delete-then-offer-undo) is the safer default.
+Future<bool?> showConfirmDeleteDialog(
   BuildContext context, {
+  String title = 'Delete this record?',
   String message = 'This record will be permanently removed.',
 }) {
   return showDialog<bool>(
@@ -28,7 +30,7 @@ Future<bool?> showRecordDeleteConfirm(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  'Delete this record?',
+                  title,
                   style: theme.typography.subtitle.copyWith(
                     color: theme.colors.textPrimary,
                   ),

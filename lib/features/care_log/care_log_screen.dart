@@ -15,6 +15,8 @@ import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_chip.dart';
 import '../../shared/widgets/app_empty_state.dart';
 import '../../shared/widgets/app_status_pill.dart';
+import '../../shared/widgets/app_extended_fab.dart';
+import '../../shared/widgets/care_log_entry_actions.dart';
 import '../../shared/widgets/quick_log_sheet.dart';
 
 class CareLogScreen extends ConsumerStatefulWidget {
@@ -59,84 +61,73 @@ class _CareLogScreenState extends ConsumerState<CareLogScreen> {
             ? today
             : today.where((e) => e.type == _filter).toList();
 
-        return ListView(
-          padding: const EdgeInsets.fromLTRB(
-            AppSpacing.xl,
-            AppSpacing.l,
-            AppSpacing.xl,
-            96,
-          ),
+        return Stack(
           children: [
-            _TodaysSummaryCard(stats: stats),
-            const SizedBox(height: AppSpacing.xl),
-            Row(
+            ListView(
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.xl,
+                AppSpacing.l,
+                AppSpacing.xl,
+                96,
+              ),
               children: [
+                _TodaysSummaryCard(stats: stats),
+                const SizedBox(height: AppSpacing.xl),
                 Text(
                   'Today',
                   style: theme.typography.subtitle.copyWith(
                     color: theme.colors.textPrimary,
                   ),
                 ),
-                const Spacer(),
-                TapScale(
-                  onTap: _addEntry,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                const SizedBox(height: AppSpacing.m),
+                Wrap(
+                  spacing: AppSpacing.s,
+                  children: [
+                    AppChip(
+                      label: 'All (${today.length})',
+                      selected: _filter == null,
+                      onTap: () => setState(() => _filter = null),
+                    ),
+                    for (final type in CareLogType.values)
+                      AppChip(
+                        label: switch (type) {
+                          CareLogType.feed => 'Feed',
+                          CareLogType.sleep => 'Sleep',
+                          CareLogType.diaper => 'Diaper',
+                          CareLogType.bath => 'Bath',
+                        },
+                        selected: _filter == type,
+                        onTap: () => setState(() => _filter = type),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.m),
+                if (filtered.isEmpty)
+                  const AppEmptyState(
+                    icon: LucideIcons.list_checks,
+                    message: 'Nothing logged yet today — use the quick-log buttons on Home.',
+                  )
+                else
+                  StaggeredListEntrance(
                     children: [
-                      Icon(
-                        LucideIcons.plus,
-                        size: 16,
-                        color: theme.colors.primary,
-                      ),
-                      const SizedBox(width: AppSpacing.xs),
-                      Text(
-                        'Add Entry',
-                        style: theme.typography.label.copyWith(
-                          color: theme.colors.primary,
+                      for (final entry in filtered)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpacing.m),
+                          child: _CareLogTile(entry: entry),
                         ),
-                      ),
                     ],
                   ),
-                ),
               ],
             ),
-            const SizedBox(height: AppSpacing.m),
-            Wrap(
-              spacing: AppSpacing.s,
-              children: [
-                AppChip(
-                  label: 'All (${today.length})',
-                  selected: _filter == null,
-                  onTap: () => setState(() => _filter = null),
-                ),
-                for (final type in CareLogType.values)
-                  AppChip(
-                    label: switch (type) {
-                      CareLogType.feed => 'Feed',
-                      CareLogType.sleep => 'Sleep',
-                      CareLogType.diaper => 'Diaper',
-                    },
-                    selected: _filter == type,
-                    onTap: () => setState(() => _filter = type),
-                  ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.m),
-            if (filtered.isEmpty)
-              const AppEmptyState(
-                icon: LucideIcons.list_checks,
-                message: 'Nothing logged yet today — use the quick-log buttons on Home.',
-              )
-            else
-              StaggeredListEntrance(
-                children: [
-                  for (final entry in filtered)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpacing.m),
-                      child: _CareLogTile(entry: entry),
-                    ),
-                ],
+            Positioned(
+              right: AppSpacing.xl,
+              bottom: AppSpacing.l,
+              child: AppExtendedFab(
+                icon: LucideIcons.plus,
+                label: 'Add Entry',
+                onTap: _addEntry,
               ),
+            ),
           ],
         );
       },
@@ -328,16 +319,17 @@ class _TypeOption extends StatelessWidget {
   }
 }
 
-class _CareLogTile extends StatelessWidget {
+class _CareLogTile extends ConsumerWidget {
   const _CareLogTile({required this.entry});
 
   final CareLogEntry entry;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = AppTheme.of(context);
     final (icon, label) = careLogTypeIconLabel(entry.type);
     final tint = careLogTypeColor(theme.colors, entry.type);
+    final running = isRunningTimer(entry);
     return AppCard(
       child: Row(
         children: [
@@ -362,7 +354,22 @@ class _CareLogTile extends StatelessWidget {
                     color: theme.colors.textPrimary,
                   ),
                 ),
-                if (entry.summary.isNotEmpty)
+                if (running)
+                  StreamBuilder<void>(
+                    stream: Stream.periodic(const Duration(seconds: 1)),
+                    builder: (context, _) {
+                      final elapsed = DateTime.now().difference(
+                        entry.startTime,
+                      );
+                      return Text(
+                        formatElapsedTimer(elapsed),
+                        style: theme.typography.caption.copyWith(
+                          color: theme.colors.textSecondary,
+                        ),
+                      );
+                    },
+                  )
+                else if (entry.summary.isNotEmpty)
                   Text(
                     entry.summary,
                     style: theme.typography.caption.copyWith(
@@ -372,10 +379,29 @@ class _CareLogTile extends StatelessWidget {
               ],
             ),
           ),
-          Text(
-            DateFormat.jm().format(entry.startTime),
-            style: theme.typography.caption.copyWith(
-              color: theme.colors.textTertiary,
+          if (running)
+            TapScale(
+              onTap: () => showQuickLogSheet(context, ref, entry.type),
+              borderRadius: BorderRadius.circular(AppRadii.pill),
+              child: AppStatusPill(label: 'Tap to stop', color: tint),
+            )
+          else
+            Text(
+              DateFormat.jm().format(entry.startTime),
+              style: theme.typography.caption.copyWith(
+                color: theme.colors.textTertiary,
+              ),
+            ),
+          TapScale(
+            onTap: () => showCareLogEntryActions(context, ref, entry),
+            borderRadius: BorderRadius.circular(AppRadii.s),
+            child: Padding(
+              padding: const EdgeInsets.only(left: AppSpacing.s),
+              child: Icon(
+                LucideIcons.ellipsis_vertical,
+                size: 18,
+                color: theme.colors.textTertiary,
+              ),
             ),
           ),
         ],
